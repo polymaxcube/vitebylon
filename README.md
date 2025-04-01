@@ -20,6 +20,11 @@ npm Install
 ```sh
 npm run dev
 ```
+## Documentation
+
+![Healthbar](./healthbar.png)
+
+
 ## License
 
 [MIT](https://choosealicense.com/licenses/mit/)

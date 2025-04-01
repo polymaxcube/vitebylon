@@ -1,10 +1,9 @@
 import { Color3, FreeCamera, GroundMesh, HemisphericLight, MeshBuilder, StandardMaterial, Vector3 } from "@babylonjs/core";
-import * as GUI from '@babylonjs/gui';
 import BaseGameRender from "./BaseGameRender";
+import HealthBar from "../utils/HealthBar";
 
 export class GameRender extends BaseGameRender {
 
-    private _textBlock?: GUI.TextBlock;
     private _light?: HemisphericLight;
     private _ground?: GroundMesh;
 
@@ -12,7 +11,6 @@ export class GameRender extends BaseGameRender {
         super(id);
         this.createMainScene();
         this.createCharacterMesh();
-        this.textGui();
     }
 
     public createMainScene() {
@@ -29,26 +27,9 @@ export class GameRender extends BaseGameRender {
         characterMaterial.diffuseColor = new Color3(1, 0.56, 0.56);
         characterMesh.material = characterMaterial;
         characterMesh.position.set(0,1,0);
-    }
 
-    private textGui() {
-        if (!this._scene) {
-            console.error("Scene is not initialized yet!");
-            return;
-        }
-
-        // GUI
-        var advancedTexture = GUI.AdvancedDynamicTexture.CreateFullscreenUI("UI", true);
-        var button1 = GUI.Button.CreateSimpleButton("but1", "Click Me");
-        button1.width = "150px"
-        button1.height = "40px";
-        button1.color = "white";
-        button1.cornerRadius = 20;
-        button1.background = "green";
-        button1.onPointerUpObservable.add(function() {
-            alert("you did it!");
-        });
-        advancedTexture.addControl(button1);          
+        //Healthbar
+        new HealthBar(characterMesh, "Player", {}, this._scene!);
     }
     
     public render() {
