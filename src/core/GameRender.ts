@@ -1,4 +1,4 @@
-import { FreeCamera, GroundMesh, HemisphericLight, MeshBuilder, Vector3 } from "@babylonjs/core";
+import { Color3, FreeCamera, GroundMesh, HemisphericLight, MeshBuilder, StandardMaterial, Vector3 } from "@babylonjs/core";
 import * as GUI from '@babylonjs/gui';
 import BaseGameRender from "./BaseGameRender";
 
@@ -11,6 +11,7 @@ export class GameRender extends BaseGameRender {
     constructor(id: string) {
         super(id);
         this.createMainScene();
+        this.createCharacterMesh();
         this.textGui();
     }
 
@@ -20,6 +21,14 @@ export class GameRender extends BaseGameRender {
         camera.attachControl(this._canvas, false);
         this._light = new HemisphericLight('light1', new Vector3(0, 1, 0), this._scene);
         this._ground = MeshBuilder.CreateGround('ground1', { height: 6, width: 6 }, this._scene);
+    }
+
+    public createCharacterMesh() {
+        const characterMesh = MeshBuilder.CreateCapsule("character", {height: 1.8, radius: 0.45 });
+        const characterMaterial = new StandardMaterial("character");
+        characterMaterial.diffuseColor = new Color3(1, 0.56, 0.56);
+        characterMesh.material = characterMaterial;
+        characterMesh.position.set(0,1,0);
     }
 
     private textGui() {
