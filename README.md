@@ -7,9 +7,9 @@ https://github.com/polymaxcube/vitebylon
 ## Deployment
 
 1. Clone the repository:
-   ```sh
-   git clone --branch healthbar --single-branch https://github.com/polymaxcube/vitebylon.git
-   ```
+```sh
+git clone --branch healthbar --single-branch https://github.com/polymaxcube/vitebylon.git
+```
    
 2. Install
 ```sh
