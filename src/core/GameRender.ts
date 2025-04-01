@@ -1,27 +1,27 @@
-import { AbstractMesh, FreeCamera, HemisphericLight, MeshBuilder, Vector3 } from "@babylonjs/core";
+import { FreeCamera, GroundMesh, HemisphericLight, MeshBuilder, Vector3 } from "@babylonjs/core";
+import * as GUI from '@babylonjs/gui';
 import BaseGameRender from "./BaseGameRender";
-import * as GUI from '@babylonjs/gui'
 
 export class GameRender extends BaseGameRender {
 
     private _textBlock?: GUI.TextBlock;
+    private _light?: HemisphericLight;
+    private _ground?: GroundMesh;
 
     constructor(id: string) {
         super(id);
         this.createMainScene();
+        this.textGui();
     }
 
     public createMainScene() {
         var camera = new FreeCamera('camera1', new Vector3(0, 5, -10), this._scene);
         camera.setTarget(Vector3.Zero());
         camera.attachControl(this._canvas, false);
-        var light = new HemisphericLight('light1', new Vector3(0, 1, 0), this._scene);
-        var ground = MeshBuilder.CreateGround('ground1', { height: 6, width: 6 }, this._scene);
-        if(this._engine) {
-            this.textGui();
-
-        }
+        this._light = new HemisphericLight('light1', new Vector3(0, 1, 0), this._scene);
+        this._ground = MeshBuilder.CreateGround('ground1', { height: 6, width: 6 }, this._scene);
     }
+
     private textGui() {
         if (!this._scene) {
             console.error("Scene is not initialized yet!");
@@ -42,7 +42,6 @@ export class GameRender extends BaseGameRender {
         advancedTexture.addControl(button1);          
     }
     
-
     public render() {
         this._engine?.runRenderLoop(()=>{
             this._scene?.render();
