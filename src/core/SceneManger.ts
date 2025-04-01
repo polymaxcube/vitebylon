@@ -1,5 +1,0 @@
-class SceneManager {
-    constructor() {
-        
-    }
-}
