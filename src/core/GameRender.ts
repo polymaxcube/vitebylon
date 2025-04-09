@@ -27,6 +27,8 @@ export class GameRender extends BaseGameRender {
         this.createMainScene();
         this.createCharacterMesh();
         this.showGUI();
+        this._camera?.setTarget(Vector3.Zero());
+        this.showCrosshair();
     }
 
     public async initializePhysics(): Promise<boolean> {
@@ -58,7 +60,7 @@ export class GameRender extends BaseGameRender {
         this._camera = new FreeCamera("camera1", new Vector3(0, 5, -10), this._scene);
         this._light = new HemisphericLight('light1', new Vector3(0, 1, 0), this._scene);
         // Mandatory ground
-        this._ground = MeshBuilder.CreateGround("ground", {width: 30, height: 30}, this._scene);
+        this._ground = MeshBuilder.CreateGround("ground", {width: 10, height: 10}, this._scene);
     }
 
     public activateAxes(character: Mesh) {
@@ -96,8 +98,6 @@ export class GameRender extends BaseGameRender {
 
         //Axes
         this.activateAxes(this._characterMesh)
-
-
     }
 
     private setPhysicsMesh() {
@@ -128,6 +128,68 @@ export class GameRender extends BaseGameRender {
         }
     }
 
+    private showCrosshair() {
+        const advancedTexture = GUI.AdvancedDynamicTexture.CreateFullscreenUI("UI", true, this._scene);
+        var rect = new GUI.Rectangle();
+        advancedTexture.addControl(rect);
+
+        var circle = new GUI.Rectangle();
+        circle.width = "20px";
+        circle.height = "20px";
+        circle.cornerRadius = 20;
+        circle.color = "lime";
+        circle.alpha = 0.7;
+        rect.addControl(circle);
+
+        
+        var innerCircle = new GUI.Rectangle();
+        innerCircle.width = "4px";
+        innerCircle.height = "4px";
+        innerCircle.cornerRadius = 4;
+        innerCircle.background = "lime";
+        innerCircle.color = "lime";
+        innerCircle.alpha = 0.9;
+        rect.addControl(innerCircle);
+
+        var leftLine = new GUI.Rectangle();
+        leftLine.left = "-15px";
+        leftLine.width = "5px";
+        leftLine.height = "1px";
+        leftLine.background = "lime";
+        leftLine.color = "lime";
+        leftLine.alpha = 0.9;
+        rect.addControl(leftLine);
+
+        
+        var rightLine = new GUI.Rectangle();
+        rightLine.left = "15px";
+        rightLine.width = "5px";
+        rightLine.height = "1px";
+        rightLine.background = "lime";
+        rightLine.color = "lime";
+        rightLine.alpha = 0.9;
+        rect.addControl(rightLine);
+
+        var topLine = new GUI.Rectangle();
+        topLine.top = "-15px";
+        topLine.width = "1px";
+        topLine.height = "5px";
+        topLine.background = "lime";
+        topLine.color = "lime";
+        topLine.alpha = 0.9;
+        rect.addControl(topLine);
+
+        var bottomLine = new GUI.Rectangle();
+        bottomLine.top = "15px";
+        bottomLine.width = "1px";
+        bottomLine.height = "5px";
+        bottomLine.background = "lime";
+        bottomLine.color = "lime";
+        bottomLine.alpha = 0.9;
+        rect.addControl(bottomLine);
+
+    }
+
     private showGUI() {
         var advancedTexture = GUI.AdvancedDynamicTexture.CreateFullscreenUI("UI", true, this._scene);
         this._guiText01 = new GUI.TextBlock("guiTextBlock01", "");
@@ -152,6 +214,8 @@ export class GameRender extends BaseGameRender {
                 this._guiText01.text += "   max dist          : " + Math.max(this._dist - 6, 0) + "\n";
                 this._guiText01.text += "   amount            : " +   (Math.min(this._dist-10, 0) + Math.max(this._dist-15, 0)) + "\n";
                 this._guiText01.text += "   amount * 0.02     : " + (Math.min(this._dist-10, 0) + Math.max(this._dist-15, 0)) * 0.02 + "\n";
+                this._guiText01.text += "   camera forward     : " + this._camera?.getForwardRay().direction + "\n";
+
             }
         });
     }
@@ -206,7 +270,33 @@ export class GameRender extends BaseGameRender {
                 this._characterBody.transformNode.rotationQuaternion = newRotation;
             }
 
+            // if (this._inputVelocity.x !== 0 || this._inputVelocity.z !== 0) {
+            //     const moveDir = new Vector3(this._inputVelocity.x, 0, this._inputVelocity.z);
+            //     const targetAngle = Math.atan2(moveDir.x, moveDir.z); // target angle in radians
+            
+            //     const currentQuat = this._characterBody.transformNode.rotationQuaternion ?? Quaternion.Identity();
+            //     const currentEuler = currentQuat.toEulerAngles();
+            //     const currentYaw = currentEuler.y;
+            
+            //     // Calculate shortest angle difference
+            //     let deltaAngle = targetAngle - currentYaw;
+            
+            //     // Normalize angle to [-π, π]
+            //     deltaAngle = Math.atan2(Math.sin(deltaAngle), Math.cos(deltaAngle));
+            
+            //     // Clamp rotation change to maximum 90 degrees (π/2 radians)
+            //     const maxRotation = Math.PI / 2;
+            //     const clampedDelta = Math.max(-maxRotation, Math.min(maxRotation, deltaAngle));
+            
+            //     const newYaw = currentYaw + clampedDelta;
+            //     const targetRotation = Quaternion.RotationYawPitchRoll(newYaw, 0, 0);
+            
+            //     this._characterBody.transformNode.rotationQuaternion = targetRotation;
+            // }
+            
+
             // Apply computed linear velocity. Each frame is the same: get current velocity, transform it, apply it, ...
+            
             this._characterBody.setLinearVelocity(linearVelocity);
 
             // Camera control: Interpolate the camera target with character position. compute an amount of distance to travel to be in an acceptable range.
@@ -248,7 +338,6 @@ export class GameRender extends BaseGameRender {
             }
         });
     }
-
 
     public render() {
         this._engine?.runRenderLoop(()=>{

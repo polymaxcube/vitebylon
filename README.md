@@ -22,7 +22,7 @@ npm run dev
 ```
 ## Documentation
 
-![Healthbar](./healthbar.png)
+![Crosshair](./public/crosshair.png)
 
 
 ## License
