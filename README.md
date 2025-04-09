@@ -8,7 +8,7 @@ https://github.com/polymaxcube/vitebylon
 
 1. Clone the repository:
 ```sh
-git clone --branch healthbar --single-branch https://github.com/polymaxcube/vitebylon.git
+git clone --branch crosshair --single-branch https://github.com/polymaxcube/vitebylon.git
 ```
    
 2. Install
