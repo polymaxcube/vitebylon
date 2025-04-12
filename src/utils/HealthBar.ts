@@ -10,6 +10,7 @@ export enum Size {
 
 type Options = {
     isBoss?: boolean;
+    hp?: number;
 }
 
 export default class HealthBar {
@@ -17,19 +18,19 @@ export default class HealthBar {
     private _nodeMesh: Mesh;
     private _text: string | null = null;
     private _healthBarSize: Size = Size.Normal;
+    private _options?: Options = { isBoss: false, hp: 100 };
+
     public _isDev: boolean = true;
     public _isBoss: boolean = false;
     public _setExtraHeight: number = 0.5;
-    private _options?: Options = { isBoss: false };
 
-    constructor(mesh: Mesh, text: string, options: Options | undefined, scene: Scene) {
+    constructor(mesh: Mesh, text: string, options: Options, scene: Scene) {
         this._nodeMesh = mesh;
         this._scene = scene;
         this._text = text;
         this._options = options;
         this.init();
     }
-
 
     private init() {
         if (!this._nodeMesh) return;
@@ -79,7 +80,7 @@ export default class HealthBar {
         greenHeal.thickness = 1;
         greenHeal.background = "green";
         greenHeal.horizontalAlignment = GUI.Control.HORIZONTAL_ALIGNMENT_LEFT;
-        greenHeal.width = "80%"; // Health fill percentage
+        greenHeal.width = `${this._options?.hp ? this._options.hp: 0}%`; // Health fill percentage
         healthbar.addControl(greenHeal);
 
         panel.addControl(healthbar); // Add health bar below text

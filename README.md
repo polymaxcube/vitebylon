@@ -8,7 +8,7 @@ https://github.com/polymaxcube/vitebylon
 
 1. Clone the repository:
 ```sh
-git clone --branch healthbar --single-branch https://github.com/polymaxcube/vitebylon.git
+git clone --branch dev_platformer --single-branch https://github.com/polymaxcube/vitebylon.git
 ```
    
 2. Install
@@ -22,7 +22,7 @@ npm run dev
 ```
 ## Documentation
 
-![Healthbar](./healthbar.png)
+![Healthbar](./public/healthbar.png)
 
 
 ## License
