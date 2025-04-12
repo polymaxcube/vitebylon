@@ -22,7 +22,7 @@ npm run dev
 ```
 ## Documentation
 
-![Healthbar](./public/platfformer.png)
+![Healthbar](./public/platformer.png)
 
 
 ## License
