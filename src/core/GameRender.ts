@@ -94,7 +94,6 @@ export class GameRender extends BaseGameRender {
         sphereHitWorldMaterial.diffuseColor = new Color3(1,0,0);
         this._sphereHitWorld.material = sphereHitWorldMaterial;
 
-        
     
         // Back Wall (Z-)
         // const wallBack = MeshBuilder.CreateBox("wallBack", { width: wallLength, height: wallHeight, depth: wallThickness }, this._scene);
@@ -163,9 +162,10 @@ export class GameRender extends BaseGameRender {
 
             const newPlatformx = (Math.sin(time * 0.8) + 6);
             // platformAggregate.deltax = newPlatformx - platformAggregate.transformNode.position.x;
-            this._platformAggregate.transformNode.position.x = newPlatformx;
             this._deltaX = newPlatformx - this._platformAggregate.transformNode.position.x;
-            // console.log(`pl: ${newPlatformx -  this._platformAggregate.transformNode.position.x}`)
+
+            this._platformAggregate.transformNode.position.x = newPlatformx;
+            console.log(`deltaX: ${this._deltaX}`)
 
             this._liftMesh.position.y = (Math.cos(time * 0.8) + 1) * 0.98;
             time += this._engine.getDeltaTime() * 0.001;
@@ -305,7 +305,9 @@ export class GameRender extends BaseGameRender {
             //falling
             if (this._platformHook) {
                 console.log(`hit platfrom...`)
-                linearVelocity.x += 0.00999 * 16.66;
+                // linearVelocity.x += 0.00999 * 16.66;
+                linearVelocity.x += this._deltaX * 16.66;
+
             }
             
             if(this._inputVelocity.y > 0) {
@@ -342,7 +344,7 @@ export class GameRender extends BaseGameRender {
             if (this._inputVelocity.x !== 0 || this._inputVelocity.z !== 0) {
                 const moveDir = new Vector3(this._inputVelocity.x, 0, this._inputVelocity.z);
                 const angle = Math.atan2(moveDir.x, moveDir.z); // target angle in radians
-                console.log(`x: ${moveDir.x}, y: ${moveDir.z}, angle: ${angle}`)
+                // console.log(`x: ${moveDir.x}, y: ${moveDir.z}, angle: ${angle}`)
             
                 // const currentRotation = this._characterBody.transformNode.rotationQuaternion?.toEulerAngles() ?? Vector3.Zero();
                 const targetRotation =  Quaternion.RotationYawPitchRoll(angle, 0, 0);
