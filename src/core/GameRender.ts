@@ -24,6 +24,11 @@ export class GameRender extends BaseGameRender {
 
         this._light = new HemisphericLight('light1', new Vector3(0, 1, 0), this._scene);
         this._ground = MeshBuilder.CreateGround('ground1', { height: 6, width: 6 }, this._scene);
+        const groundMaterial = new StandardMaterial("groundMat", this._scene);
+        groundMaterial.diffuseColor = new Color3(0, 0, 1); // RGB for blue
+
+        this._ground.material = groundMaterial;
+
     }
 
     public createCharacterMesh() {
