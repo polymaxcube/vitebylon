@@ -1,4 +1,4 @@
-import { AxesViewer, Color3, FreeCamera, GroundMesh, HavokPlugin, HemisphericLight, KeyboardEventTypes, Mesh, MeshBuilder, PhysicsAggregate, PhysicsBody, PhysicsMotionType, PhysicsShapeType, Quaternion, Scalar, ShapeCastResult, StandardMaterial, Texture, Vector3 } from "@babylonjs/core";
+import { AxesViewer, Color3, FreeCamera, GroundMesh, HavokPlugin, HemisphericLight, KeyboardEventTypes, Mesh, MeshBuilder, PhysicsAggregate, PhysicsBody, PhysicsMotionType, PhysicsShapeType, PointerEventTypes, Quaternion, Scalar, ShapeCastResult, StandardMaterial, Texture, Vector3 } from "@babylonjs/core";
 import BaseGameRender from "./BaseGameRender";
 import HealthBar from "../utils/HealthBar";
 import HavokPhysics from "@babylonjs/havok";
@@ -80,6 +80,40 @@ export class GameRender extends BaseGameRender {
         this._ground = MeshBuilder.CreateGround("ground", { width: groundSize, height: groundSize }, this._scene);
 
     }
+
+    private _shootBullet() {
+        if (!this._characterMesh || !this._scene || !this._hkPlugin) return;
+    
+        // Create bullet mesh
+        const bullet = MeshBuilder.CreateSphere("bullet", { diameter: 0.2 }, this._scene);
+        bullet.position = this._characterMesh.position.clone().add(new Vector3(0, 0.25, 0));
+    
+        // Material
+        const mat = new StandardMaterial("bulletMat", this._scene);
+        mat.diffuseColor = new Color3(1, 1, 0); // yellow
+        bullet.material = mat;
+    
+        // Physics body
+        const bulletAggregate = new PhysicsAggregate(bullet, PhysicsShapeType.SPHERE, {
+            mass: 0.2,
+            restitution: 0.1,
+            friction: 0.2
+        }, this._scene);
+    
+        // Get forward direction
+        const forward = this._characterMesh.forward;
+    
+        // Apply velocity
+        bulletAggregate.body.setLinearVelocity(forward.scale(50));
+    
+        // 💥 Auto-dispose after 3 seconds
+        setTimeout(() => {
+            bulletAggregate.body.dispose(); // dispose physics
+            bullet.dispose();               // dispose mesh
+            mat.dispose();                  // dispose material
+        }, 3000);
+    }
+    
 
     private createWallsPhysics(groundSize = 20) {
         // Wall settings
@@ -259,6 +293,10 @@ export class GameRender extends BaseGameRender {
         this._guiText01.text += "Jump              : \n";
         advancedTexture.addControl(this._guiText01); 
 
+        // Shoot bullet
+        this._scene?.onPointerObservable.add(() => this._shootBullet(), PointerEventTypes.POINTERDOWN);
+
+
         this._engine && this._engine.onBeginFrameObservable.add(() => {
 
             if(this._guiText01) {
@@ -304,7 +342,7 @@ export class GameRender extends BaseGameRender {
 
             //falling
             if (this._platformHook) {
-                console.log(`hit platfrom...`)
+                console.log(`hit platform...`)
                 // linearVelocity.x += 0.00999 * 16.66;
                 linearVelocity.x += this._deltaX * 16.66;
 
