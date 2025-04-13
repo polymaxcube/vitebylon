@@ -357,6 +357,7 @@ export class GameRender extends BaseGameRender {
             
             if(this._characterMesh) {
                 // Casting the shape to the ground below. It works like a raycast but with thickness
+                // this._camera.parent = this._characterMesh;
                 const shapeLocalResult = new ShapeCastResult();
                 const hitWorldResult = new ShapeCastResult();
                 this._hkPlugin?.shapeCast({shape: this._characterAggregate.shape,
@@ -410,7 +411,6 @@ export class GameRender extends BaseGameRender {
             this.respawnUnderThreshold();
 
         });
-
 
         this._scene.onKeyboardObservable.add((kbInfo) => {
             const multiplier = (kbInfo.type == KeyboardEventTypes.KEYDOWN) ? 2 : 0;
