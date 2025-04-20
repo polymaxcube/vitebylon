@@ -104,7 +104,7 @@ export class GameRender extends BaseGameRender {
         const forward = this._characterMesh.forward;
     
         // Apply velocity
-        bulletAggregate.body.setLinearVelocity(forward.scale(50));
+        bulletAggregate.body.setLinearVelocity(forward.scale(100));
     
         // 💥 Auto-dispose after 3 seconds
         setTimeout(() => {
