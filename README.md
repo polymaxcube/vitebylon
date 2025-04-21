@@ -20,6 +20,11 @@ npm Install
 ```sh
 npm run dev
 ```
+***
+```sh
+git remote add upstream https://github.com/OWNER/REPO.git
+```
+
 ## Documentation
 
 ![Healthbar](./public/platformer.png)
