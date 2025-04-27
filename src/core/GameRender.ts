@@ -1,4 +1,4 @@
-import { AxesViewer, Color3, FreeCamera, GroundMesh, HavokPlugin, HemisphericLight, KeyboardEventTypes, Mesh, MeshBuilder, PhysicsAggregate, PhysicsBody, PhysicsShapeType, Quaternion, Scalar, StandardMaterial, Texture, Vector3 } from "@babylonjs/core";
+import { AxesViewer, Color3, FreeCamera, GroundMesh, HavokPlugin, HemisphericLight, KeyboardEventTypes, Mesh, MeshBuilder, PhysicsAggregate, PhysicsBody, PhysicsShapeType, PointerEventTypes, Quaternion, Scalar, StandardMaterial, Texture, Vector3 } from "@babylonjs/core";
 import BaseGameRender from "./BaseGameRender";
 import HealthBar from "../utils/HealthBar";
 import HavokPhysics from "@babylonjs/havok";
@@ -20,7 +20,7 @@ export class GameRender extends BaseGameRender {
     private _dist: number = 0;
     private _amount: number = 0;
 
-    private _isFPS = false;
+    private _isFPS = true;
 
     constructor(id: string) {
         super(id);
@@ -28,6 +28,15 @@ export class GameRender extends BaseGameRender {
         this.createMainScene();
         this.createCharacterMesh();
         this.showGUI();
+
+        this._scene && this._scene.onPointerObservable.add((pointerInfo) => {
+            if (pointerInfo.type === PointerEventTypes.POINTERDOWN) {
+                if (!this._engine?.isPointerLock) {
+                    this._engine?.enterPointerlock();
+                }
+            }
+        });
+        
     }
 
     public async initializePhysics(): Promise<boolean> {
@@ -61,8 +70,8 @@ export class GameRender extends BaseGameRender {
             this._camera = new FreeCamera("camera1", new Vector3(0, 5, -10), this._scene);
         }
         else {
-            this._camera = new FreeCamera('camera1', new Vector3(0, 1, 0.7), this._scene);
-            this._camera.attachControl(this._canvas, false);
+            this._camera = new FreeCamera('camera1', new Vector3(0, 1, 0.2), this._scene);
+            // this._camera.attachControl(this._canvas, true);
         }
 
         this._light = new HemisphericLight('light1', new Vector3(0, 1, 0), this._scene);
@@ -70,6 +79,7 @@ export class GameRender extends BaseGameRender {
         this._ground = MeshBuilder.CreateGround("ground", {width: 30, height: 30}, this._scene);
     }
 
+    
     public activateAxes(character: Mesh) {
         const axes = new AxesViewer(this._scene, 0.5);
         axes.xAxis.position = new Vector3(0, 1, 0);
@@ -85,6 +95,26 @@ export class GameRender extends BaseGameRender {
         axes.yAxis.rotationQuaternion = null;
         axes.zAxis.rotationQuaternion = null;
 
+    }
+
+    public lockPointer(): boolean {
+        if (!this._engine) {
+            console.error("Cannot lock pointer - engine not available");
+            return false;
+        }
+
+        try {
+            this._engine.enterPointerlock();
+            
+            if (!this._engine.isPointerLock) {
+                this._engine.getRenderingCanvas()?.requestPointerLock();
+            }
+            
+            return this._engine.isPointerLock;
+        } catch (err) {
+            console.error("Error locking pointer:", err);
+            return false;
+        }
     }
 
     public createCharacterMesh() {
@@ -109,7 +139,7 @@ export class GameRender extends BaseGameRender {
         }else{
             this._camera.parent = this._characterMesh;
             this._camera.setTarget(this._characterMesh.position);
-            this._camera.attachControl(this._canvas, false);
+            this._camera.attachControl(this._canvas, true);
         }
 
         //Axes
