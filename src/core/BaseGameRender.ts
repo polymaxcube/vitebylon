@@ -1,13 +1,13 @@
 // import SceneManager from "@/core/SceneManager";
 
-import { Engine, Scene } from "@babylonjs/core";
-
-
+import { Engine, FreeCamera, Scene } from "@babylonjs/core";
 
 export default abstract class BaseGameRender {
     public _canvas: string;
     public _engine?: Engine;
     public _scene?: Scene;
+    public _camera?: FreeCamera;
+
     // public sceneManager?: SceneManager;
     
     constructor(canvas: string) {

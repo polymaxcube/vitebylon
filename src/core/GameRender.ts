@@ -13,13 +13,14 @@ export class GameRender extends BaseGameRender {
     private _inputVelocity: Vector3 = new Vector3(0, 0, 0);
 
     private _characterBody?: PhysicsBody;
-    private _camera?: FreeCamera;
 
     private _falling: boolean = false;
     private _guiText01?: GUI.TextBlock | undefined;
 
     private _dist: number = 0;
     private _amount: number = 0;
+
+    private _isFPS = false;
 
     constructor(id: string) {
         super(id);
@@ -55,7 +56,15 @@ export class GameRender extends BaseGameRender {
     }
 
     public createMainScene() {
-        this._camera = new FreeCamera("camera1", new Vector3(0, 5, -10), this._scene);
+
+        if(!this._isFPS) {
+            this._camera = new FreeCamera("camera1", new Vector3(0, 5, -10), this._scene);
+        }
+        else {
+            this._camera = new FreeCamera('camera1', new Vector3(0, 1, 0.7), this._scene);
+            this._camera.attachControl(this._canvas, false);
+        }
+
         this._light = new HemisphericLight('light1', new Vector3(0, 1, 0), this._scene);
         // Mandatory ground
         this._ground = MeshBuilder.CreateGround("ground", {width: 30, height: 30}, this._scene);
@@ -79,9 +88,10 @@ export class GameRender extends BaseGameRender {
     }
 
     public createCharacterMesh() {
+        if(!this._camera) return;
+
         this._characterMesh = MeshBuilder.CreateCapsule("character", {height: 1.8, radius: 0.45 });
         // this._characterMesh = MeshBuilder.CreateBox("character", {height: 1.8 });
-
 
         const characterMaterial = new StandardMaterial("character");
         characterMaterial.diffuseColor = new Color3(1, 0.56, 0.56);
@@ -92,7 +102,15 @@ export class GameRender extends BaseGameRender {
         new HealthBar( this._characterMesh, "Player", {}, this._scene!);
 
         //Set Camera
-        this._camera && this._camera.setTarget(this._characterMesh.position);
+        // this._camera && this._camera.setTarget(this._characterMesh.position);
+
+        if(!this._isFPS) {
+            this._camera.setTarget(this._characterMesh.position);
+        }else{
+            this._camera.parent = this._characterMesh;
+            this._camera.setTarget(this._characterMesh.position);
+            this._camera.attachControl(this._canvas, false);
+        }
 
         //Axes
         this.activateAxes(this._characterMesh)
@@ -209,13 +227,16 @@ export class GameRender extends BaseGameRender {
             // Apply computed linear velocity. Each frame is the same: get current velocity, transform it, apply it, ...
             this._characterBody.setLinearVelocity(linearVelocity);
 
-            // Camera control: Interpolate the camera target with character position. compute an amount of distance to travel to be in an acceptable range.
-            this._camera.setTarget(Vector3.Lerp(this._camera.getTarget(), this._characterMesh.position, 0.1));
+            if(!this._isFPS) {
+                // Camera control: Interpolate the camera target with character position. compute an amount of distance to travel to be in an acceptable range.
+                this._camera.setTarget(Vector3.Lerp(this._camera.getTarget(), this._characterMesh.position, 0.1));
 
-            this._dist = Vector3.Distance(this._camera.position, this._characterMesh.position);
-            this._amount = (Math.min(this._dist - 10, 0) + Math.max(this._dist - 7, 0)) * 0.02;
+                this._dist = Vector3.Distance(this._camera.position, this._characterMesh.position);
+                this._amount = (Math.min(this._dist - 10, 0) + Math.max(this._dist - 7, 0)) * 0.02;
 
-            cameraDirection.scaleAndAddToRef(this._amount, this._camera.position);
+                cameraDirection.scaleAndAddToRef(this._amount, this._camera.position);
+            }
+
             this.respawnUnderThreshold();
 
         });
@@ -248,7 +269,6 @@ export class GameRender extends BaseGameRender {
             }
         });
     }
-
 
     public render() {
         this._engine?.runRenderLoop(()=>{
