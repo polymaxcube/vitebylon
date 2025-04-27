@@ -17,6 +17,6 @@ export default defineConfig({
     },
     plugins: [wasm(), topLevelAwait(), tsconfigPaths()],
     optimizeDeps: {
-      exclude: ["@babylonjs/havok", "@babylonjs/core"],
+        exclude: ["@babylonjs/havok", "@babylonjs/core", "@babylonjs/loaders"],
     },
 });

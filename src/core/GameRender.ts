@@ -1,8 +1,14 @@
-import { AxesViewer, Color3, FreeCamera, GroundMesh, HavokPlugin, HemisphericLight, KeyboardEventTypes, Mesh, MeshBuilder, PhysicsAggregate, PhysicsBody, PhysicsShapeType, PointerEventTypes, Quaternion, Scalar, StandardMaterial, Texture, Vector3 } from "@babylonjs/core";
+import { AxesViewer, Color3, FreeCamera, GroundMesh, HavokPlugin, HemisphericLight, ImportMeshAsync, KeyboardEventTypes, Mesh, MeshBuilder, Nullable, PhysicsAggregate, PhysicsBody, PhysicsShapeType, PointerEventTypes, Quaternion, StandardMaterial, Texture, TransformNode, Vector3 } from "@babylonjs/core";
 import BaseGameRender from "./BaseGameRender";
 import HealthBar from "../utils/HealthBar";
 import HavokPhysics from "@babylonjs/havok";
 import * as GUI from 'babylonjs-gui';
+// import "@babylonjs/loaders/glTF";
+// import '@babylonjs/loaders';
+import { registerBuiltInLoaders } from "@babylonjs/loaders/dynamic";
+import "@babylonjs/loaders/glTF";
+
+// import { GLTFFileLoader } from "@babylonjs/loaders/glTF";
 
 export class GameRender extends BaseGameRender {
 
@@ -20,7 +26,8 @@ export class GameRender extends BaseGameRender {
     private _dist: number = 0;
     private _amount: number = 0;
 
-    private _isFPS = true;
+    private _isFPS = false;
+    private _gunParentNode?: Nullable<TransformNode>;
 
     constructor(id: string) {
         super(id);
@@ -28,6 +35,8 @@ export class GameRender extends BaseGameRender {
         this.createMainScene();
         this.createCharacterMesh();
         this.showGUI();
+        this.loadGunModel();
+        // registerBuiltInLoaders();
 
         this._scene && this._scene.onPointerObservable.add((pointerInfo) => {
             if (pointerInfo.type === PointerEventTypes.POINTERDOWN) {
@@ -38,6 +47,14 @@ export class GameRender extends BaseGameRender {
         });
         
     }
+
+    // private async loadMap() {
+    //     if(!this._scene) return;
+    //     await ImportMeshAsync("https://raw.githubusercontent.com/CedricGuillemet/dump/master/CharController/levelTest.glb", this._scene).then(() => {
+    //         var lightmapped = ["level_primitive0", "level_primitive1", "level_primitive2"];
+
+    //     });
+    // }
 
     public async initializePhysics(): Promise<boolean> {
         if(!this._scene) {
@@ -202,6 +219,37 @@ export class GameRender extends BaseGameRender {
                 this._guiText01.text += "   amount * 0.02     : " + (Math.min(this._dist-10, 0) + Math.max(this._dist-15, 0)) * 0.02 + "\n";
             }
         });
+    }
+
+    private async loadGunModel() {
+        if(!this._scene) return;
+        // SceneLoader.ImportMesh(
+        //     "", 
+        //     "https://dl.dropbox.com/s/kqnda4k2aqx8pro/", 
+        //     "AKM.obj", 
+        //     this._scene, 
+        //     function (newMeshes) {
+        //         var mat = new StandardMaterial("gunMaterial");
+        //         mat.diffuseTexture = new Texture("https://dl.dropbox.com/s/isvd4dggvp3vks2/akm_diff.tga");
+        //         mat.bumpTexture = new Texture("https://dl.dropbox.com/s/hiuhjsp4pckt9pu/akm_norm.tga");
+        //         mat.specularTexture = new Texture("https://dl.dropbox.com/s/f3samm7vuvl0ez4/akm_spec.tga");
+                
+        //         for (var i = 0; i < newMeshes.length; i++) {
+        //             var mesh = newMeshes[i];
+        //             mesh.material = mat;
+        //             mesh.scaling.set(0.05, 0.05, 0.05);
+        //             mesh.isPickable = false;
+        //             mesh.parent = parentNode;
+        //         }
+        //     }
+        // );
+
+        const result = await ImportMeshAsync('pistol.glb', this._scene);
+        const body = result.meshes[0] as Mesh; // LP_body_primitive0 (Body)
+        body.scaling.scaleInPlace(0.05);
+        body.rotation.x += Math.PI / 8;
+        body.parent = this._characterMesh!;
+
     }
 
     private setupCharacterControl() {
