@@ -247,7 +247,11 @@ export class GameRender extends BaseGameRender {
         const result = await ImportMeshAsync('pistol.glb', this._scene);
         const body = result.meshes[0] as Mesh; // LP_body_primitive0 (Body)
         body.scaling.scaleInPlace(0.05);
-        body.rotation.x += Math.PI / 8;
+        body.isPickable = false;
+        body.rotationQuaternion = Quaternion.RotationYawPitchRoll(Math.PI/2, Math.PI/4, 0);
+        // body.computeWorldMatrix(true); 
+        // body.position.y = 2;
+        // body.rotation.x = Math.PI / 4;
         body.parent = this._characterMesh!;
 
     }
