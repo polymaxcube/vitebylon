@@ -1,4 +1,4 @@
-import { AxesViewer, Color3, FreeCamera, GroundMesh, HavokPlugin, HemisphericLight, KeyboardEventTypes, Mesh, MeshBuilder, PhysicsAggregate, PhysicsBody, PhysicsMotionType, PhysicsShapeType, PointerEventTypes, Quaternion, Scalar, ShapeCastResult, StandardMaterial, Texture, Vector3 } from "@babylonjs/core";
+import { AxesViewer, Color3, Color4, FreeCamera, GroundMesh, HavokPlugin, HemisphericLight, KeyboardEventTypes, Mesh, MeshBuilder, PhysicsAggregate, PhysicsBody, PhysicsMotionType, PhysicsShapeType, PointerEventTypes, Quaternion, Scalar, ShapeCastResult, StandardMaterial, Texture, Vector3 } from "@babylonjs/core";
 import BaseGameRender from "./BaseGameRender";
 import HealthBar from "../utils/HealthBar";
 import HavokPhysics from "@babylonjs/havok";
@@ -113,6 +113,28 @@ export class GameRender extends BaseGameRender {
             mat.dispose();                  // dispose material
         }, 3000);
     }
+
+    private createTrampoline() {
+        var trampoline = MeshBuilder.CreateBox("trampoline", {size: 1}, this._scene);
+        trampoline.position = new Vector3(3, 0, -5);
+        trampoline.scaling.y = 0.3;
+        trampoline.checkCollisions = true;
+        const trampolineMat = new StandardMaterial("trampoline_mat");
+        trampolineMat.diffuseColor = new Color3(1, 0.95, 0);
+        trampoline.material = trampolineMat;
+
+        var trampolineAggregate = new PhysicsAggregate(trampoline, PhysicsShapeType.BOX, { mass: 0, restitution:0.0}, this._scene);
+        trampolineAggregate.body.setCollisionCallbackEnabled(true);
+
+        this._hkPlugin?.onCollisionObservable.add((ev) => {
+            console.log(ev.type);
+        });
+        
+        this._hkPlugin?.onCollisionEndedObservable.add((ev) => {
+            console.log(ev.type);
+        });
+
+    }
     
 
     private createWallsPhysics(groundSize = 20) {
@@ -199,7 +221,7 @@ export class GameRender extends BaseGameRender {
             this._deltaX = newPlatformx - this._platformAggregate.transformNode.position.x;
 
             this._platformAggregate.transformNode.position.x = newPlatformx;
-            console.log(`deltaX: ${this._deltaX}`)
+            // console.log(`deltaX: ${this._deltaX}`)
 
             this._liftMesh.position.y = (Math.cos(time * 0.8) + 1) * 0.98;
             time += this._engine.getDeltaTime() * 0.001;
@@ -268,6 +290,8 @@ export class GameRender extends BaseGameRender {
         this._ground.material = groundMaterial;
 
         this.createWallsPhysics();
+
+        this.createTrampoline();
 
     }
 
