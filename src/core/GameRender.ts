@@ -114,6 +114,7 @@ export class GameRender extends BaseGameRender {
         }, 3000);
     }
 
+    //collision body
     private createTrampoline() {
         var trampoline = MeshBuilder.CreateBox("trampoline", {size: 1}, this._scene);
         trampoline.position = new Vector3(3, 0, -5);
@@ -128,10 +129,16 @@ export class GameRender extends BaseGameRender {
 
         this._hkPlugin?.onCollisionObservable.add((ev) => {
             console.log(ev.type);
+            console.log('collideCB', ev.collider.transformNode.name, ev.point, ev.distance, ev.impulse, ev.normal);
+
+            if(ev.type === "COLLISION_STARTED") {
+                this._inputVelocity.y = 6;
+            }
         });
         
         this._hkPlugin?.onCollisionEndedObservable.add((ev) => {
             console.log(ev.type);
+            this._inputVelocity.y = 0;
         });
 
     }
@@ -250,7 +257,7 @@ export class GameRender extends BaseGameRender {
     }
 
     public createCharacterMesh() {
-        this._characterMesh = MeshBuilder.CreateCapsule("character", {height: 1.8, radius: 0.45 });
+        this._characterMesh = MeshBuilder.CreateCapsule("character_capsule", {height: 1.8, radius: 0.45 });
         // this._characterMesh = MeshBuilder.CreateBox("character", {height: 1.8 });
 
         const characterMaterial = new StandardMaterial("character");
@@ -402,7 +409,7 @@ export class GameRender extends BaseGameRender {
                 }
             }
 
-            linearVelocity.y = this._characterBody.getLinearVelocity().y;
+            // linearVelocity.y = this._characterBody.getLinearVelocity().y;
 
             if (this._inputVelocity.x !== 0 || this._inputVelocity.z !== 0) {
                 const moveDir = new Vector3(this._inputVelocity.x, 0, this._inputVelocity.z);
@@ -424,6 +431,7 @@ export class GameRender extends BaseGameRender {
 
             // Apply computed linear velocity. Each frame is the same: get current velocity, transform it, apply it, ...
             this._characterBody.setLinearVelocity(linearVelocity);
+            
 
             // Camera control: Interpolate the camera target with character position. compute an amount of distance to travel to be in an acceptable range.
             this._camera.setTarget(Vector3.Lerp(this._camera.getTarget(), this._characterMesh.position, 0.1));

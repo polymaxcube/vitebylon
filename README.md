@@ -27,7 +27,7 @@ git remote add upstream https://github.com/OWNER/REPO.git
 
 ## Documentation
 
-![Healthbar](./public/trampoline_screenshot.png)
+![Trampoline](./public/trampoline_screenshot.png)
 
 
 ## License
