@@ -3,6 +3,7 @@ import BaseGameRender from "./BaseGameRender";
 import HealthBar from "../utils/HealthBar";
 import HavokPhysics from "@babylonjs/havok";
 import * as GUI from 'babylonjs-gui';
+// import { PhysicsEventType } from "@babylonjs/core/Physics/v2/IPhysicsEnginePlugin";
 
 export class GameRender extends BaseGameRender {
 
@@ -114,7 +115,7 @@ export class GameRender extends BaseGameRender {
         }, 3000);
     }
 
-    //collision body
+    //collision world
     private createTrampoline() {
         var trampoline = MeshBuilder.CreateBox("trampoline", {size: 1}, this._scene);
         trampoline.position = new Vector3(3, 0, -5);
@@ -127,12 +128,19 @@ export class GameRender extends BaseGameRender {
         var trampolineAggregate = new PhysicsAggregate(trampoline, PhysicsShapeType.BOX, { mass: 0, restitution:0.0}, this._scene);
         trampolineAggregate.body.setCollisionCallbackEnabled(true);
 
-        this._hkPlugin?.onCollisionObservable.add((ev) => {
-            console.log(ev.type);
-            console.log('collideCB', ev.collider.transformNode.name, ev.point, ev.distance, ev.impulse, ev.normal);
+        // 🔍 Listen only when the trampoline is involved
+        this._hkPlugin?.onCollisionObservable.add((event) => {
+            const nodeA = event.collider.transformNode;
+            const nodeB = event.collidedAgainst.transformNode;
 
-            if(ev.type === "COLLISION_STARTED") {
-                this._inputVelocity.y = 6;
+            const isTrampolineInvolved =
+                nodeA?.name === "trampoline" || nodeB?.name === "trampoline";
+
+            if (isTrampolineInvolved) {
+                console.log(`nodeA: ${nodeA}, nodeB: ${nodeB}`);
+                if(event.type === "COLLISION_STARTED" && nodeA.name === "character_capsule") {
+                    this._inputVelocity.y = 6;
+                }
             }
         });
         
@@ -142,7 +150,6 @@ export class GameRender extends BaseGameRender {
         });
 
     }
-    
 
     private createWallsPhysics(groundSize = 20) {
         // Wall settings
@@ -286,6 +293,16 @@ export class GameRender extends BaseGameRender {
         if(this._characterBody) {
             this._characterBody.disablePreStep = false;
             this._characterBody.setMassProperties({ inertia: Vector3.ZeroReadOnly });
+
+            this._characterBody.setCollisionCallbackEnabled(true);
+
+            // Observe collisions
+            // const observable = this._characterBody.getCollisionObservable();
+            // const observer = observable.add((collisionEvent) => {
+            //     const other = collisionEvent.collider;
+            //     const name = other.transformNode?.name || 'Unnamed object';
+            //     console.log('Character collided with:', name);
+            // });
         }
 
         var groundAggregate = new PhysicsAggregate(this._ground, PhysicsShapeType.BOX, { mass: 0 }, this._scene);        
