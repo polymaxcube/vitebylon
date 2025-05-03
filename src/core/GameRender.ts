@@ -297,12 +297,12 @@ export class GameRender extends BaseGameRender {
             this._characterBody.setCollisionCallbackEnabled(true);
 
             // Observe collisions
-            // const observable = this._characterBody.getCollisionObservable();
-            // const observer = observable.add((collisionEvent) => {
-            //     const other = collisionEvent.collider;
-            //     const name = other.transformNode?.name || 'Unnamed object';
-            //     console.log('Character collided with:', name);
-            // });
+            const observable = this._characterBody.getCollisionObservable();
+            const observer = observable.add((collisionEvent) => {
+                const other = collisionEvent.collider;
+                const name = other.transformNode?.name || 'Unnamed object';
+                console.log('Character collided with:', collisionEvent.collidedAgainst.transformNode.name);
+            });
         }
 
         var groundAggregate = new PhysicsAggregate(this._ground, PhysicsShapeType.BOX, { mass: 0 }, this._scene);        
