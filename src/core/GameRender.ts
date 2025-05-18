@@ -1,4 +1,4 @@
-import { AxesViewer, Color3, Color4, FreeCamera, GroundMesh, HavokPlugin, HemisphericLight, KeyboardEventTypes, Mesh, MeshBuilder, PhysicsAggregate, PhysicsBody, PhysicsMotionType, PhysicsShapeType, PointerEventTypes, Quaternion, Scalar, ShapeCastResult, StandardMaterial, Texture, Vector3 } from "@babylonjs/core";
+import { AxesViewer, Color3, Color4, FreeCamera, GroundMesh, HavokPlugin, HemisphericLight, KeyboardEventTypes, Mesh, MeshBuilder, PhysicsAggregate, PhysicsBody, PhysicsMotionType, PhysicsShapeSphere, PhysicsShapeType, PointerEventTypes, Quaternion, Scalar, ShapeCastResult, StandardMaterial, Texture, TransformNode, Vector3 } from "@babylonjs/core";
 import BaseGameRender from "./BaseGameRender";
 import HealthBar from "../utils/HealthBar";
 import HavokPhysics from "@babylonjs/havok";
@@ -283,6 +283,36 @@ export class GameRender extends BaseGameRender {
 
     }
 
+    //Trigger 
+    private createTriggerShape() {
+        var triggerShapeRadius = 2;
+
+        // Mesh
+        // const triggerShapeRepr = MeshBuilder.CreateSphere("triggerShapeRepr", {diameter: triggerShapeRadius*2});
+        var triggerTransform = new TransformNode("triggerTransform");
+
+        // // Mat
+        // const triggerShapeReprMat = new StandardMaterial("triggerShapeShapeReprMat");
+        // triggerShapeReprMat.diffuseColor = Color3.Red();
+        // // assign Mat into Mesh
+        // triggerShapeRepr.material = triggerShapeReprMat;
+        // triggerShapeRepr.material.alpha = 0.7;
+
+        // Mess
+        var triggerShape = new PhysicsShapeSphere(new Vector3(0,0,0), triggerShapeRadius, this._scene!);
+        triggerShape.isTrigger = true;
+
+        // Mess PhysicsBody
+        var triggerBody = new PhysicsBody(triggerTransform, PhysicsMotionType.STATIC, false, this._scene!);
+        triggerBody.shape = triggerShape;
+
+        this._hkPlugin?.onTriggerCollisionObservable.add((ev) => {
+            // console.log(ev);
+            console.log(ev.type, ':', ev.collider.transformNode.name, '-', ev.collidedAgainst.transformNode.name);
+        });
+
+    }
+
     private setPhysicsMesh() {
         if(!this._characterMesh || !this._ground) return;
         this._characterAggregate = new PhysicsAggregate(this._characterMesh,
@@ -296,12 +326,12 @@ export class GameRender extends BaseGameRender {
 
             this._characterBody.setCollisionCallbackEnabled(true);
 
-            // Observe collisions
+            // Observe collisions (passive)
             const observable = this._characterBody.getCollisionObservable();
             const observer = observable.add((collisionEvent) => {
                 const other = collisionEvent.collider;
                 const name = other.transformNode?.name || 'Unnamed object';
-                console.log('Character collided with:', collisionEvent.collidedAgainst.transformNode.name);
+                // console.log('Character collided with:', collisionEvent.collidedAgainst.transformNode.name);
             });
         }
 
@@ -313,10 +343,10 @@ export class GameRender extends BaseGameRender {
         groundMaterial.diffuseTexture = groundTexture;
         this._ground.material = groundMaterial;
 
+        //call others
         this.createWallsPhysics();
-
         this.createTrampoline();
-
+        this.createTriggerShape();
     }
 
     private respawnUnderThreshold() {
