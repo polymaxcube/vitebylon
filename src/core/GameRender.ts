@@ -288,15 +288,17 @@ export class GameRender extends BaseGameRender {
         var triggerShapeRadius = 2;
 
         // Mesh
-        // const triggerShapeRepr = MeshBuilder.CreateSphere("triggerShapeRepr", {diameter: triggerShapeRadius*2});
+        const triggerShapeRepr = MeshBuilder.CreateSphere("triggerShapeRepr", {diameter: triggerShapeRadius*2});
         var triggerTransform = new TransformNode("triggerTransform");
 
-        // // Mat
-        // const triggerShapeReprMat = new StandardMaterial("triggerShapeShapeReprMat");
-        // triggerShapeReprMat.diffuseColor = Color3.Red();
-        // // assign Mat into Mesh
-        // triggerShapeRepr.material = triggerShapeReprMat;
-        // triggerShapeRepr.material.alpha = 0.7;
+        // Mat
+        const triggerShapeReprMat = new StandardMaterial("triggerShapeShapeReprMat");
+        triggerShapeReprMat.diffuseColor = Color3.Red();
+        // assign Mat into Mesh
+        triggerShapeRepr.material = triggerShapeReprMat;
+        triggerShapeRepr.material.alpha = 0.7;
+
+        triggerShapeRepr.position = new Vector3(0, 0, 0);
 
         // Mess
         var triggerShape = new PhysicsShapeSphere(new Vector3(0,0,0), triggerShapeRadius, this._scene!);
@@ -369,6 +371,7 @@ export class GameRender extends BaseGameRender {
         this._guiText01.fontSize = "15pt"; 
         this._guiText01.text += "Sprinting         : \n";
         this._guiText01.text += "Jump              : \n";
+
         advancedTexture.addControl(this._guiText01); 
 
         // Shoot bullet
@@ -518,7 +521,6 @@ export class GameRender extends BaseGameRender {
             }
         });
     }
-
 
     public render() {
         this._engine?.runRenderLoop(()=>{
