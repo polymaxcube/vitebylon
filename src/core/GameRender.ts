@@ -35,7 +35,7 @@ export class GameRender extends BaseGameRender {
         this.createMainScene();
         this.createCharacterMesh();
         this.showGUI();
-        this.loadGunModel();
+
         // registerBuiltInLoaders();
 
         this._scene && this._scene.onPointerObservable.add((pointerInfo) => {
@@ -70,6 +70,10 @@ export class GameRender extends BaseGameRender {
                 this.setPhysicsMesh();                
                 console.log("initializePhysics: Physics engine enabled.");
                 this.setupCharacterControl();
+
+                this.loadGunModel();
+                this.loadCharacterModel();
+
                 return true;
             } else {
                 console.error("initializePhysics: Physics engine not enabled.");
@@ -248,9 +252,65 @@ export class GameRender extends BaseGameRender {
         const body = result.meshes[0] as Mesh; // LP_body_primitive0 (Body)
         body.scaling.scaleInPlace(0.05);
         body.isPickable = false;
-        body.rotationQuaternion = Quaternion.RotationYawPitchRoll(Math.PI/2, Math.PI/4, 0);
+
+        // body.rotationQuaternion = null; // Clear any existing quaternion
+        // body.rotation = Vector3.Zero(); // Reset rotation
+
+        body.rotation = new Vector3(0, -Math.PI / 2, 0); // Rotate 180 degrees around Y to face forward
+
+        const axes = new AxesViewer(this._scene, 1);
+        axes.xAxis.parent = body;
+        axes.yAxis.parent = body;
+        axes.zAxis.parent = body;
+        // body.rotationQuaternion = Quaternion.RotationYawPitchRoll(Math.PI/2, Math.PI/4, 0);
         // body.computeWorldMatrix(true); 
-        // body.position.y = 2;
+        body.position.z = this._characterMesh?.position.z! + 1;
+        // body.rotation.x = Math.PI / 4;
+        body.parent = this._characterMesh!;
+
+    }
+
+    private async loadCharacterModel() {
+        if(!this._scene) return;
+        // SceneLoader.ImportMesh(
+        //     "", 
+        //     "https://dl.dropbox.com/s/kqnda4k2aqx8pro/", 
+        //     "AKM.obj", 
+        //     this._scene, 
+        //     function (newMeshes) {
+        //         var mat = new StandardMaterial("gunMaterial");
+        //         mat.diffuseTexture = new Texture("https://dl.dropbox.com/s/isvd4dggvp3vks2/akm_diff.tga");
+        //         mat.bumpTexture = new Texture("https://dl.dropbox.com/s/hiuhjsp4pckt9pu/akm_norm.tga");
+        //         mat.specularTexture = new Texture("https://dl.dropbox.com/s/f3samm7vuvl0ez4/akm_spec.tga");
+                
+        //         for (var i = 0; i < newMeshes.length; i++) {
+        //             var mesh = newMeshes[i];
+        //             mesh.material = mat;
+        //             mesh.scaling.set(0.05, 0.05, 0.05);
+        //             mesh.isPickable = false;
+        //             mesh.parent = parentNode;
+        //         }
+        //     }
+        // );
+
+        const result = await ImportMeshAsync('character.glb', this._scene);
+        const body = result.meshes[0] as Mesh; // LP_body_primitive0 (Body)
+        body.scaling.scaleInPlace(2);
+        body.isPickable = false;
+
+        body.getWorldMatrix();
+        body.rotationQuaternion = null; // Clear any existing quaternion
+        body.rotation = Vector3.Zero(); // Reset rotation
+
+        body.rotation = new Vector3(0, 2 * Math.PI / 2, 0); // Rotate 180 degrees around Y to face forward
+
+        const axes = new AxesViewer(this._scene, 1);
+        axes.xAxis.parent = body;
+        axes.yAxis.parent = body;
+        axes.zAxis.parent = body;
+        // body.rotationQuaternion = Quaternion.RotationYawPitchRoll(Math.PI/2, Math.PI/4, 0);
+        // body.computeWorldMatrix(true); 
+        body.position.z = this._characterMesh?.position.z! + 1;
         // body.rotation.x = Math.PI / 4;
         body.parent = this._characterMesh!;
 
