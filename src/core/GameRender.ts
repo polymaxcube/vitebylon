@@ -1,12 +1,10 @@
-import { AxesViewer, Color3, FreeCamera, GroundMesh, HavokPlugin, HemisphericLight, ImportMeshAsync, KeyboardEventTypes, Mesh, MeshBuilder, Nullable, PhysicsAggregate, PhysicsBody, PhysicsShapeType, PointerEventTypes, Quaternion, StandardMaterial, Texture, TransformNode, Vector3 } from "@babylonjs/core";
+import { AxesViewer, Color3, FreeCamera, GroundMesh, HavokPlugin, HemisphericLight, ImportMeshAsync, KeyboardEventTypes, Mesh, MeshBuilder, Nullable, PhysicsAggregate, PhysicsBody, PhysicsCharacterController, PhysicsMotionType, PhysicsShapeType, PhysicsViewer, PointerEventTypes, Quaternion, StandardMaterial, Texture, TransformNode, Vector3 } from "@babylonjs/core";
 import BaseGameRender from "./BaseGameRender";
 import HealthBar from "../utils/HealthBar";
 import HavokPhysics from "@babylonjs/havok";
 import * as GUI from 'babylonjs-gui';
-// import "@babylonjs/loaders/glTF";
-// import '@babylonjs/loaders';
-import { registerBuiltInLoaders } from "@babylonjs/loaders/dynamic";
 import "@babylonjs/loaders/glTF";
+import GameGUI from "@/utils/GameGUI";
 
 // import { GLTFFileLoader } from "@babylonjs/loaders/glTF";
 
@@ -15,26 +13,42 @@ export class GameRender extends BaseGameRender {
     private _light?: HemisphericLight;
     private _ground?: GroundMesh;
     public _hkPlugin?: HavokPlugin;
+
     private _characterMesh?: Mesh;
-    private _inputVelocity: Vector3 = new Vector3(0, 0, 0);
+    private _mainCharacterMesh?: Mesh;
+
+    public _inputVelocity: Vector3 = new Vector3(0, 0, 0);
 
     private _characterBody?: PhysicsBody;
+    private _mainCharacterBody? : PhysicsBody;
 
     private _falling: boolean = false;
     private _guiText01?: GUI.TextBlock | undefined;
 
-    private _dist: number = 0;
+    public _dist: number = 0;
     private _amount: number = 0;
 
     private _isFPS = false;
     private _gunParentNode?: Nullable<TransformNode>;
+    
+    private _characterController?: PhysicsCharacterController;
+
+    private _physicsViewer?: PhysicsViewer;
+
+    private _h = 1.8;
+    private _r = 0.6;
+
+    // private _mainCharacter: Mesh | undefined = null;
 
     constructor(id: string) {
         super(id);
-        this.initializePhysics();
-        this.createMainScene();
+      this.createMainScene();
         this.createCharacterMesh();
-        this.showGUI();
+        this.initializePhysics();
+  
+        // this.showGUI();
+        new GameGUI(this._inputVelocity, this._engine!, this._scene!);
+
 
         // registerBuiltInLoaders();
 
@@ -56,6 +70,7 @@ export class GameRender extends BaseGameRender {
     //     });
     // }
 
+    //#region loadmodels here
     public async initializePhysics(): Promise<boolean> {
         if(!this._scene) {
              throw Error("Cannot find scene");
@@ -66,13 +81,26 @@ export class GameRender extends BaseGameRender {
             this._scene.enablePhysics(new Vector3(0, -9.81, 0), this._hkPlugin);
             console.log("Havok Physics initialized successfully.");
 
+
             if (this._scene.isPhysicsEnabled()) {
-                this.setPhysicsMesh();                
+    
+
+                this.applyPhysicsMesh();    
+
+
+
                 console.log("initializePhysics: Physics engine enabled.");
                 this.setupCharacterControl();
 
-                this.loadGunModel();
-                this.loadCharacterModel();
+
+
+
+                if(this._characterMesh) {
+                    this._characterController = new PhysicsCharacterController(
+                        this._characterMesh?.position, 
+                        { capsuleHeight: this._h, capsuleRadius: this._r }, 
+                        this._scene!);
+                }
 
                 return true;
             } else {
@@ -84,6 +112,7 @@ export class GameRender extends BaseGameRender {
             return false;
         }
     }
+    //#endregion
 
     public createMainScene() {
 
@@ -98,9 +127,12 @@ export class GameRender extends BaseGameRender {
         this._light = new HemisphericLight('light1', new Vector3(0, 1, 0), this._scene);
         // Mandatory ground
         this._ground = MeshBuilder.CreateGround("ground", {width: 30, height: 30}, this._scene);
+
+        // this.loadGunModel();
+        // this.loadCharacterModel();
+                
     }
 
-    
     public activateAxes(character: Mesh) {
         const axes = new AxesViewer(this._scene, 0.5);
         axes.xAxis.position = new Vector3(0, 1, 0);
@@ -141,13 +173,14 @@ export class GameRender extends BaseGameRender {
     public createCharacterMesh() {
         if(!this._camera) return;
 
-        this._characterMesh = MeshBuilder.CreateCapsule("character", {height: 1.8, radius: 0.45 });
+        this._characterMesh = MeshBuilder.CreateCapsule("character", {height: this._h, radius: this._r });
         // this._characterMesh = MeshBuilder.CreateBox("character", {height: 1.8 });
 
         const characterMaterial = new StandardMaterial("character");
         characterMaterial.diffuseColor = new Color3(1, 0.56, 0.56);
         this._characterMesh.material = characterMaterial;
         this._characterMesh.position.set(0,1,0);
+
 
         //Healthbar
         new HealthBar( this._characterMesh, "Player", {}, this._scene!);
@@ -169,8 +202,87 @@ export class GameRender extends BaseGameRender {
 
     }
 
-    private setPhysicsMesh() {
-        if(!this._characterMesh || !this._ground) return;
+    private async applyPhysicsMesh() {
+        if(!this._characterMesh || !this._ground || !this._scene) return;
+
+
+        // this.loadGunModel();
+        // await this.loadCharacterModel();
+
+        
+        // if (!bodyMesh || bodyMesh.getTotalVertices() === 0) {
+        //     console.error("Character model has no vertices or failed to load. Skipping physics aggregate.");
+        //     return;
+        // }
+
+
+        // this._mainCharacterMesh = bodyMesh;
+
+        // if (!this.bodyMesh) {
+        // console.error("Main character mesh is null/undefined");
+        // return;
+        // }
+
+        const result = await ImportMeshAsync('character.glb', this._scene);
+        const bodyMesh = result.meshes[0] as Mesh; // LP_body_primitive0 (Body)
+        bodyMesh.scaling.scaleInPlace(2);
+        bodyMesh.isPickable = true;
+        // bodyMesh.position.y = 3;
+
+        bodyMesh.getWorldMatrix();
+        bodyMesh.rotationQuaternion = null; // Clear any existing quaternion
+        bodyMesh.rotation = Vector3.Zero(); // Reset rotation
+
+        bodyMesh.rotation = new Vector3(0, 2 * -Math.PI, 0); // Rotate 180 degrees around Y to face forward
+
+        // const axes = new AxesViewer(this._scene, 1);
+        // axes.xAxis.parent = body;
+        // axes.yAxis.parent = body;
+        // axes.zAxis.parent = body;
+        // body.rotationQuaternion = Quaternion.RotationYawPitchRoll(Math.PI/2, Math.PI/4, 0);
+        // body.computeWorldMatrix(true); 
+        bodyMesh.position.z = this._characterMesh?.position.z! + 1;
+        // body.rotation.x = Math.PI / 4;
+        // this._mainCharacterMesh = bodyMesh;
+
+        const mainCharacterAggregate = new PhysicsAggregate(
+                bodyMesh,
+                PhysicsShapeType.MESH,
+                { mass: 1 },
+                this._scene
+        );
+
+        // const mainCharacterBody = mainCharacterAggregate.body;
+        // mainCharacterBody.disablePreStep = false;
+        // mainCharacterBody.setMassProperties({ inertia: Vector3.ZeroReadOnly });
+        
+
+
+
+        // if (this._mainCharacterMesh) {
+        //     // Check if the mesh has valid geometry
+        //     if (this._mainCharacterMesh.getTotalVertices() > 0) {
+        //         try {
+        //             const mainCharacterAggregate = new PhysicsAggregate(
+        //                 this._mainCharacterMesh,
+        //                 PhysicsShapeType.CONVEX_HULL,
+        //                 { mass: 2, center: new Vector3(0, 0, 0) },
+        //                 this._scene
+        //             );
+                    
+        //             mainCharacterAggregate.body.disablePreStep = true;
+        //             // mainCharacterAggregate.body.setMotionType(PhysicsMotionType.ANIMATED);
+        //         } catch (error) {
+        //             console.error("Failed to create physics aggregate for character:", error);
+        //             // Handle the error appropriately (maybe fallback to simpler physics shape)
+        //         }
+        //     } else {
+        //         console.warn("Main character mesh has no vertices, skipping physics setup");
+        //     }
+        // } else {
+        //     console.warn("Main character mesh is not defined");
+        // }
+
         const characterAggregate = new PhysicsAggregate(this._characterMesh,
             PhysicsShapeType.CAPSULE,
             { mass: 1, friction: 0.5, restitution: 0 },
@@ -179,7 +291,17 @@ export class GameRender extends BaseGameRender {
         this._characterBody.disablePreStep = false;
         this._characterBody.setMassProperties({ inertia: Vector3.ZeroReadOnly });
 
-        var groundAggregate = new PhysicsAggregate(this._ground, PhysicsShapeType.BOX, { mass: 0 }, this._scene);
+
+        // Main character/NPC physics - only if mesh exists
+
+
+        // this._mainCharacterBody.applyForce(new Vector3(0, 0, 10), new Vector3(0, 0, 10))
+
+        // this._mainCharacterBody.disablePreStep = false;
+        // this._mainCharacterBody.setMassProperties({ inertia: Vector3.Zero() });
+        // this._mainCharacterBody.setMassProperties({ inertia: Vector3.ZeroReadOnly });
+
+        new PhysicsAggregate(this._ground, PhysicsShapeType.BOX, { mass: 0 }, this._scene);
         
         const groundMaterial = new StandardMaterial("ground");
         const groundTexture = new Texture("https://raw.githubusercontent.com/CedricGuillemet/dump/master/Ground_1mx1m.png");
@@ -187,7 +309,22 @@ export class GameRender extends BaseGameRender {
         groundTexture.uScale = 5;
         groundMaterial.diffuseTexture = groundTexture;
         this._ground.material = groundMaterial;
+
+        
+        await this.applyPhysicsViewer();
+
     }
+
+    public async applyPhysicsViewer() {
+        if(!this._scene) return;
+        this._physicsViewer = new PhysicsViewer(this._scene);
+        for (const node of this._scene.rootNodes) {
+            if (node instanceof Mesh && node.physicsBody) {
+                const debugMesh = this._physicsViewer.showBody(node.physicsBody);
+            }
+        }
+    }
+
 
     private respawnUnderThreshold() {
         if(this._characterMesh) {
@@ -195,34 +332,6 @@ export class GameRender extends BaseGameRender {
                 this._characterMesh.position.set(0,1,-3);
             }
         }
-    }
-
-    private showGUI() {
-        var advancedTexture = GUI.AdvancedDynamicTexture.CreateFullscreenUI("UI", true, this._scene);
-        this._guiText01 = new GUI.TextBlock("guiTextBlock01", "");
-        this._guiText01.color = "white";
-        this._guiText01.textHorizontalAlignment = GUI.TextBlock.HORIZONTAL_ALIGNMENT_LEFT;
-        this._guiText01.textVerticalAlignment = GUI.TextBlock.VERTICAL_ALIGNMENT_TOP;
-        this._guiText01.horizontalAlignment = GUI.Control.HORIZONTAL_ALIGNMENT_RIGHT;
-        this._guiText01.verticalAlignment = GUI.Control.VERTICAL_ALIGNMENT_TOP;
-        this._guiText01.fontFamily = "Courier New";
-        this._guiText01.fontSize = "15pt"; 
-        this._guiText01.text += "Sprinting         : \n";
-        this._guiText01.text += "Jump              : \n";
-        advancedTexture.addControl(this._guiText01); 
-
-        this._engine && this._engine.onBeginFrameObservable.add(() => {
-
-            if(this._guiText01) {
-                this._guiText01.text = "\n";
-                this._guiText01.text += "   inputVelocity     : " + this._inputVelocity + "\n";
-                this._guiText01.text += "   dist              : " + this._dist + "\n";
-                this._guiText01.text += "   min dist          : " + Math.min(this._dist - 10, 0) + "\n";
-                this._guiText01.text += "   max dist          : " + Math.max(this._dist - 6, 0) + "\n";
-                this._guiText01.text += "   amount            : " +   (Math.min(this._dist-10, 0) + Math.max(this._dist-15, 0)) + "\n";
-                this._guiText01.text += "   amount * 0.02     : " + (Math.min(this._dist-10, 0) + Math.max(this._dist-15, 0)) * 0.02 + "\n";
-            }
-        });
     }
 
     private async loadGunModel() {
@@ -258,10 +367,10 @@ export class GameRender extends BaseGameRender {
 
         body.rotation = new Vector3(0, -Math.PI / 2, 0); // Rotate 180 degrees around Y to face forward
 
-        const axes = new AxesViewer(this._scene, 1);
-        axes.xAxis.parent = body;
-        axes.yAxis.parent = body;
-        axes.zAxis.parent = body;
+        // const axes = new AxesViewer(this._scene, 1);
+        // axes.xAxis.parent = body;
+        // axes.yAxis.parent = body;
+        // axes.zAxis.parent = body;
         // body.rotationQuaternion = Quaternion.RotationYawPitchRoll(Math.PI/2, Math.PI/4, 0);
         // body.computeWorldMatrix(true); 
         body.position.z = this._characterMesh?.position.z! + 1;
@@ -294,25 +403,33 @@ export class GameRender extends BaseGameRender {
         // );
 
         const result = await ImportMeshAsync('character.glb', this._scene);
-        const body = result.meshes[0] as Mesh; // LP_body_primitive0 (Body)
-        body.scaling.scaleInPlace(2);
-        body.isPickable = false;
+        const bodyMesh = result.meshes[0] as Mesh; // LP_body_primitive0 (Body)
+        bodyMesh.scaling.scaleInPlace(2);
+        bodyMesh.isPickable = false;
+        // bodyMesh.position.y = 3;
 
-        body.getWorldMatrix();
-        body.rotationQuaternion = null; // Clear any existing quaternion
-        body.rotation = Vector3.Zero(); // Reset rotation
+        bodyMesh.getWorldMatrix();
+        bodyMesh.rotationQuaternion = null; // Clear any existing quaternion
+        bodyMesh.rotation = Vector3.Zero(); // Reset rotation
 
-        body.rotation = new Vector3(0, 2 * Math.PI / 2, 0); // Rotate 180 degrees around Y to face forward
+        bodyMesh.rotation = new Vector3(0, 2 * -Math.PI, 0); // Rotate 180 degrees around Y to face forward
 
-        const axes = new AxesViewer(this._scene, 1);
-        axes.xAxis.parent = body;
-        axes.yAxis.parent = body;
-        axes.zAxis.parent = body;
+        // const axes = new AxesViewer(this._scene, 1);
+        // axes.xAxis.parent = body;
+        // axes.yAxis.parent = body;
+        // axes.zAxis.parent = body;
         // body.rotationQuaternion = Quaternion.RotationYawPitchRoll(Math.PI/2, Math.PI/4, 0);
         // body.computeWorldMatrix(true); 
-        body.position.z = this._characterMesh?.position.z! + 1;
+        bodyMesh.position.z = this._characterMesh?.position.z! + 1;
         // body.rotation.x = Math.PI / 4;
-        body.parent = this._characterMesh!;
+        this._mainCharacterMesh = bodyMesh;
+
+
+        // return bodyMesh;
+
+
+
+        // bodyMesh.parent = this._characterMesh!;
 
     }
 
@@ -368,6 +485,9 @@ export class GameRender extends BaseGameRender {
 
             // Apply computed linear velocity. Each frame is the same: get current velocity, transform it, apply it, ...
             this._characterBody.setLinearVelocity(linearVelocity);
+            // this._mainCharacterBody.setLinearVelocity(linearVelocity);
+
+            // this._mainCharacterBody.setLinearVelocity(linearVelocity);
 
             if(!this._isFPS) {
                 // Camera control: Interpolate the camera target with character position. compute an amount of distance to travel to be in an acceptable range.
@@ -396,6 +516,8 @@ export class GameRender extends BaseGameRender {
                 case 'arrowdown':
                 case 's':
                     this._inputVelocity.z = -multiplier; // ✅ Backward
+                    //  this._mainCharacterBody?.setLinearVelocity(this._inputVelocity);
+
                     break;
                 case 'arrowleft':
                 case 'a':
