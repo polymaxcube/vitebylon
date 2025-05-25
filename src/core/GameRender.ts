@@ -1,9 +1,11 @@
-import { AxesViewer, Color3, Color4, FreeCamera, GroundMesh, HavokPlugin, HemisphericLight, KeyboardEventTypes, Mesh, MeshBuilder, PhysicsAggregate, PhysicsBody, PhysicsMotionType, PhysicsShapeSphere, PhysicsShapeType, PointerEventTypes, Quaternion, Scalar, ShapeCastResult, StandardMaterial, Texture, TransformNode, Vector3 } from "@babylonjs/core";
+import { AbstractMesh, AxesViewer, Color3, Color4, FreeCamera, GroundMesh, HavokPlugin, HemisphericLight, ImportMeshAsync, KeyboardEventTypes, Mesh, MeshBuilder, PhysicsAggregate, PhysicsBody, PhysicsMotionType, PhysicsShape, PhysicsShapeSphere, PhysicsShapeType, PointerEventTypes, Quaternion, Scalar, ShapeCastResult, StandardMaterial, Texture, TransformNode, Vector3 } from "@babylonjs/core";
 import BaseGameRender from "./BaseGameRender";
 import HealthBar from "../utils/HealthBar";
 import HavokPhysics from "@babylonjs/havok";
 import * as GUI from 'babylonjs-gui';
 // import { PhysicsEventType } from "@babylonjs/core/Physics/v2/IPhysicsEnginePlugin";
+import "@babylonjs/loaders/glTF";
+
 
 export class GameRender extends BaseGameRender {
 
@@ -38,9 +40,12 @@ export class GameRender extends BaseGameRender {
 
     constructor(id: string) {
         super(id);
-        this.initializePhysics();
+
         this.createMainScene();
+
         this.createCharacterMesh();
+        this.initializePhysics();
+
         this.showGUI();
     }
 
@@ -58,6 +63,11 @@ export class GameRender extends BaseGameRender {
                 console.log("initializePhysics: Physics engine enabled.");
                 this.setPhysicsMesh();                
                 this.setupCharacterControl();
+
+                
+                // Decoration
+                await this.createSofa();
+
                 return true;
             } else {
                 console.error("initializePhysics: Physics engine not enabled.");
@@ -69,7 +79,110 @@ export class GameRender extends BaseGameRender {
         }
     }
 
-    public createMainScene() {
+    public createSphere() {
+        const x = 0;
+        const y = 2;
+        const z = 4;
+
+        var sph = MeshBuilder.CreateSphere("s"+x+y+z, {diameter: 0.5});
+        // sph.material = mat;
+        sph.position.set(0, 2, -6);
+        var ag = new PhysicsAggregate(sph, PhysicsShapeType.SPHERE, {mass: 1});
+    }
+
+
+    private applyPhysicsToEachChildMesh(mesh: AbstractMesh) {
+        const childMeshes = mesh.getChildMeshes();
+
+        if (childMeshes.length === 0) {
+            console.warn("No child meshes found.");
+            return;
+        }
+
+        childMeshes.forEach(child => {
+            if (child instanceof Mesh) {
+                console.log(`Applying physics to: ${child.name}`);
+                new PhysicsAggregate(child, PhysicsShapeType.MESH, { mass: 1 }, this._scene);
+            }
+        });
+    }
+
+    private applyPhysicsSmart(mesh: AbstractMesh) {
+        const childMeshes = mesh.getChildMeshes().filter(
+            (m): m is Mesh => m instanceof Mesh
+        );
+
+        if (childMeshes.length === 1) {
+            // Just apply physics directly to that one mesh
+            const singleMesh = childMeshes[0];
+            console.log("Applying physics to single mesh:", singleMesh.name);
+            new PhysicsAggregate(singleMesh, PhysicsShapeType.MESH, { mass: 1 }, this._scene);
+        } else if (childMeshes.length > 1) {
+            // Merge and apply physics
+            const merged = Mesh.MergeMeshes(childMeshes, true, true, undefined, false, true);
+            if (merged) {
+                merged.position = mesh.position.clone();
+                merged.isVisible = true;
+                merged.setEnabled(true);
+                new PhysicsAggregate(merged, PhysicsShapeType.MESH, { mass: 1 }, this._scene);
+                console.log("Applied physics to merged mesh.");
+            } else {
+                console.warn("Mesh merging failed.");
+            }
+        } else {
+            console.warn("No valid mesh to apply physics.");
+        }
+    }
+
+
+    public async createSofa() {
+
+        // this.createSphere();
+
+        const result = await ImportMeshAsync('whitesofa.glb', this._scene!);
+        // Get the first real Mesh (not a TransformNode)
+        const mesh = result.meshes[0];
+        let childMeshes = mesh.getChildMeshes();
+
+        if (!childMeshes) {
+            console.error("No mesh found in GLB.");
+            return;
+        }
+
+        if (childMeshes.length === 0) {
+        console.warn("No child meshes found.");
+        return;
+        }
+
+        mesh.position.z = -8;
+        mesh.position.y = 2;
+
+        mesh.showBoundingBox = true;
+        mesh.showSubMeshesBoundingBox = true;
+        //Apply Physics
+        if (this._scene?.isPhysicsEnabled()) {
+            console.log('create sofa =====>')
+
+        // this.applyPhysicsToEachChildMesh(mesh);
+        this.applyPhysicsSmart(mesh);
+
+        // childMeshes.forEach(child => {
+        //     if (child instanceof Mesh) {
+        //         console.log(`Applying physics to ${child.name}`);
+        //         new PhysicsAggregate(child, PhysicsShapeType.MESH, { mass: 1 }, this._scene);
+        //     }
+        // });
+
+            // if(mesh.onReady) {
+            //     console.log('ready =====>')
+            //     new PhysicsAggregate(mesh, PhysicsShapeType.MESH, { mass: 1 }, this._scene);
+            // }
+        } else {
+            console.warn("Physics is not enabled on the scene.");
+        }
+    }
+
+    public async createMainScene() {
         // Camera and light
         this._camera = new FreeCamera("camera1", new Vector3(0, 5, -10), this._scene);
         this._camera.setTarget(Vector3.Zero());
@@ -241,8 +354,6 @@ export class GameRender extends BaseGameRender {
             time += this._engine.getDeltaTime() * 0.001;
 
         });
-
- 
 
     }
     
