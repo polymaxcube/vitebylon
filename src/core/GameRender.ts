@@ -46,13 +46,28 @@ export class GameRender extends BaseGameRender {
         this.createCharacterMesh();
         this.initializePhysics();
 
+        if(this._scene) {
+            this._scene.registerBeforeRender(() => {
+                this._scene?.meshes.forEach((otherMesh) => {
+                    // if (otherMesh !== this._characterMesh && box1.intersectsMesh(otherMesh, false)) {
+                    if (this._characterMesh?.intersectsMesh(otherMesh, false)) {
+                    console.log(`_characterMesh Collision detected with: ${otherMesh.name}`);
+                    }
+                });
+            });
+        }
+
+
+
         this.showGUI();
     }
 
     public async initializePhysics(): Promise<boolean> {
+
         if(!this._scene) {
              throw Error("Cannot find scene");
         }
+
         try {
             const havokInstance = await HavokPhysics();
             this._hkPlugin = new HavokPlugin(true, havokInstance);
@@ -64,9 +79,8 @@ export class GameRender extends BaseGameRender {
                 this.setPhysicsMesh();                
                 this.setupCharacterControl();
 
-                
                 // Decoration
-                await this.createSofa();
+                await this.createModel();
 
                 return true;
             } else {
@@ -90,7 +104,6 @@ export class GameRender extends BaseGameRender {
         var ag = new PhysicsAggregate(sph, PhysicsShapeType.SPHERE, {mass: 1});
     }
 
-
     private applyPhysicsToEachChildMesh(mesh: AbstractMesh) {
         const childMeshes = mesh.getChildMeshes();
 
@@ -102,16 +115,47 @@ export class GameRender extends BaseGameRender {
         childMeshes.forEach(child => {
             if (child instanceof Mesh) {
                 console.log(`Applying physics to: ${child.name}`);
-                new PhysicsAggregate(child, PhysicsShapeType.MESH, { mass: 1 }, this._scene);
+                child.scaling.scaleInPlace(0.2)
+                new PhysicsAggregate(child, PhysicsShapeType.BOX, { mass: 5 }, this._scene);
             }
         });
     }
 
-    private applyPhysicsSmart(mesh: AbstractMesh) {
+    private mergeChildMeshes(mesh: AbstractMesh): Mesh | null {
         const childMeshes = mesh.getChildMeshes().filter(
             (m): m is Mesh => m instanceof Mesh
         );
 
+        console.log(`Merging ${childMeshes.length} child meshes...`);
+
+        if (childMeshes.length > 1) {
+            const merged = Mesh.MergeMeshes(childMeshes, true, true, undefined, false, true);
+            if (merged) {
+                merged.position = mesh.position.clone();
+                merged.isVisible = true;
+                merged.setEnabled(true);
+                console.log("Meshes merged successfully.");
+                return merged;
+            } else {
+                console.warn("Mesh merging failed.");
+                return null;
+            }
+        } else if (childMeshes.length === 1) {
+            console.log("Only one mesh found. No merging performed.");
+            return childMeshes[0];
+        } else {
+            console.warn("No meshes to merge.");
+            return null;
+        }
+    }
+
+    private applyPhysicsSmart(mesh: AbstractMesh) {
+        console.log('SMART....')
+        const childMeshes = mesh.getChildMeshes().filter(
+            (m): m is Mesh => m instanceof Mesh
+        );
+
+        console.log(`childMeshes: ${childMeshes.length}`)
         if (childMeshes.length === 1) {
             // Just apply physics directly to that one mesh
             const singleMesh = childMeshes[0];
@@ -135,11 +179,14 @@ export class GameRender extends BaseGameRender {
     }
 
 
-    public async createSofa() {
+    public async createModel() {
 
         // this.createSphere();
-
-        const result = await ImportMeshAsync('whitesofa.glb', this._scene!);
+        //whitesofa
+        // orecat09
+        //hp_portion
+        //thai_studentg
+        const result = await ImportMeshAsync('hp_portion.glb', this._scene!);
         // Get the first real Mesh (not a TransformNode)
         const mesh = result.meshes[0];
         let childMeshes = mesh.getChildMeshes();
@@ -155,16 +202,26 @@ export class GameRender extends BaseGameRender {
         }
 
         mesh.position.z = -8;
-        mesh.position.y = 2;
+        mesh.position.y = 3;
 
         mesh.showBoundingBox = true;
         mesh.showSubMeshesBoundingBox = true;
         //Apply Physics
         if (this._scene?.isPhysicsEnabled()) {
-            console.log('create sofa =====>')
+            // this.applyPhysicsSmart(mesh);
+            this.applyPhysicsToEachChildMesh(mesh);
 
-        // this.applyPhysicsToEachChildMesh(mesh);
-        this.applyPhysicsSmart(mesh);
+
+        // const meshesMerge = this.mergeChildMeshes(mesh);
+        // if(meshesMerge) {
+        //     meshesMerge.position.z = -1;
+        //     meshesMerge.position.y = 0;
+        //     // this.applyPhysicsToEachChildMesh(meshesMerge);
+        //     this.applyPhysicsSmart(meshesMerge);
+
+        // }
+
+        // this.applyPhysicsSmart(meshesMerge!);
 
         // childMeshes.forEach(child => {
         //     if (child instanceof Mesh) {
@@ -181,6 +238,7 @@ export class GameRender extends BaseGameRender {
             console.warn("Physics is not enabled on the scene.");
         }
     }
+    
 
     public async createMainScene() {
         // Camera and light
@@ -270,13 +328,11 @@ export class GameRender extends BaseGameRender {
         const wallThickness = 0.5;
         const wallLength = groundSize;
 
-
         // debug red sphere that will be placed where the shape cast detects the casting collision point
         this._sphereHitWorld = MeshBuilder.CreateSphere("s", {diameter: 0.15});
         const sphereHitWorldMaterial = new StandardMaterial("sm");
         sphereHitWorldMaterial.diffuseColor = new Color3(1,0,0);
         this._sphereHitWorld.material = sphereHitWorldMaterial;
-
     
         // Back Wall (Z-)
         // const wallBack = MeshBuilder.CreateBox("wallBack", { width: wallLength, height: wallHeight, depth: wallThickness }, this._scene);
@@ -524,7 +580,6 @@ export class GameRender extends BaseGameRender {
 
             // by default, character velocity is 0. It won't move if no input or not falling
             var linearVelocity = new Vector3(0,0,0);
-            
 
             cameraDirection.scaleAndAddToRef(this._inputVelocity.z, linearVelocity); // z is forward
             cameraRight.scaleAndAddToRef(this._inputVelocity.x, linearVelocity);     // x is strafe
