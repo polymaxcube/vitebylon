@@ -52,6 +52,9 @@ export class GameRender extends BaseGameRender {
                     // if (otherMesh !== this._characterMesh && box1.intersectsMesh(otherMesh, false)) {
                     if (this._characterMesh?.intersectsMesh(otherMesh, false)) {
                     console.log(`_characterMesh Collision detected with: ${otherMesh.name}`);
+                        if(otherMesh.name === "node0") {
+                             otherMesh.dispose()
+                        }
                     }
                 });
             });
