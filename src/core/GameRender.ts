@@ -1,17 +1,27 @@
-import { AbstractMesh, AxesViewer, Color3, Color4, FreeCamera, GroundMesh, HavokPlugin, HemisphericLight, ImportMeshAsync, KeyboardEventTypes, Mesh, MeshBuilder, PhysicsAggregate, PhysicsBody, PhysicsMotionType, PhysicsShape, PhysicsShapeSphere, PhysicsShapeType, PointerEventTypes, Quaternion, Scalar, ShapeCastResult, StandardMaterial, Texture, TransformNode, Vector3 } from "@babylonjs/core";
+import { AbstractMesh, AnimationGroup, AxesViewer, Color3, Color4, CreateAudioEngineAsync, CubeTexture, FreeCamera, GroundMesh, HavokPlugin, HemisphericLight, ImportMeshAsync, KeyboardEventTypes, Mesh, MeshBuilder, ParticleSystem, PhysicsAggregate, PhysicsBody, PhysicsMotionType, PhysicsShape, PhysicsShapeMesh, PhysicsShapeSphere, PhysicsShapeType, PhysicsViewer, PointerEventTypes, Quaternion, Scalar, ShapeCastResult, Sound, StandardMaterial, StaticSound, Texture, TransformNode, Vector3 } from "@babylonjs/core";
 import BaseGameRender from "./BaseGameRender";
 import HealthBar from "../utils/HealthBar";
 import HavokPhysics from "@babylonjs/havok";
 import * as GUI from 'babylonjs-gui';
-// import { PhysicsEventType } from "@babylonjs/core/Physics/v2/IPhysicsEnginePlugin";
 import "@babylonjs/loaders/glTF";
+import { PATHS } from "@/utils/static_assets";
 
+enum ItemId {
+  WhiteSofa = "whitesofa.glb",
+  OreCat09 = "orecat09.glb",
+  HpPotion = "hp_potion.glb",
+  ThaiStudentG = "thai_studentg.glb",
+  MainCharacter = "./models/character.glb",
+  OriCat = "./models/oricat.glb",
+  HealthPotion = "/models/potions/HealthPotion.glb",
+  GreenPotion = "/models/potions/green_potion.glb"
+}
 
 export class GameRender extends BaseGameRender {
 
     private _light?: HemisphericLight;
     private _ground?: GroundMesh;
-    public _hkPlugin?: HavokPlugin;
+    // public _hkPlugin?: HavokPlugin;
     private _characterMesh?: Mesh;
     private _inputVelocity: Vector3 = new Vector3(0, 0, 0);
 
@@ -36,33 +46,389 @@ export class GameRender extends BaseGameRender {
     private _prevPlatformX = 0;
     private _deltaX: number = 0;
 
+    private _healSoundEffect!: StaticSound;
+    private _healingPotionUsed = false; // Add this to your class
+
+    private _physicsViewer?: PhysicsViewer;
+
+    private _potionRespawnTime = 10000; // 1 นาที = 60000 ms
+    private _potionCollectedAt: number | null = null;
+
+    private _potionElapsedTime = 0;
+    
+    private _animations: Record<string, AnimationGroup> = {};
+    private _currentAnim: string | null = null;
+
+    private _playRecord: Record<string, {}> = {}
+
+    public _playerHP: number = 50;
+    public _hpBar: HealthBar | undefined;
+
     // private _platformHook
 
     constructor(id: string) {
         super(id);
 
+        // Create
         this.createMainScene();
-
         this.createCharacterMesh();
-        this.initializePhysics();
+        this.createAudio();
 
-        if(this._scene) {
-            this._scene.registerBeforeRender(() => {
-                this._scene?.meshes.forEach((otherMesh) => {
-                    // if (otherMesh !== this._characterMesh && box1.intersectsMesh(otherMesh, false)) {
-                    if (this._characterMesh?.intersectsMesh(otherMesh, false)) {
-                    console.log(`_characterMesh Collision detected with: ${otherMesh.name}`);
-                        if(otherMesh.name === "node0") {
-                             otherMesh.dispose()
-                        }
-                    }
-                });
-            });
-        }
+        this.initializePhysics(); //update
 
-
+        // Events
+        // this.updateHealingPotion();
+        this.update();
 
         this.showGUI();
+
+    }
+
+    private createHealingParticlesAttachedToCharacter() {
+        if (!this._characterMesh) return;
+
+        // Main healing aura effect
+        const particleSystem = new ParticleSystem("healingAura", 500, this._scene!);
+        
+        // Use a soft glow texture (consider a custom circular gradient texture)
+        particleSystem.particleTexture = new Texture("textures/flare.png", this._scene);
+        particleSystem.blendMode = ParticleSystem.BLENDMODE_ONEONE; // Additive blending for bright effect
+
+        // Attach to character
+        particleSystem.emitter = this._characterMesh;
+        particleSystem.isLocal = true;
+
+        // Emission area - focused around character's core
+        particleSystem.minEmitBox = new Vector3(-0.5, 0, -0.5);
+        particleSystem.maxEmitBox = new Vector3(0.5, 1.8, 0.5);
+
+        // Color - vibrant healing green with white core
+        particleSystem.color1 = new Color4(0.2, 1.0, 0.3, 1.0); // Vivid green
+        particleSystem.color2 = new Color4(0.8, 1.0, 0.8, 0.3); // White-green fade
+        particleSystem.colorDead = new Color4(0.1, 0.4, 0.1, 0.0);
+
+        // Larger particle sizes (reduced count but more visible)
+        particleSystem.minSize = 0.4;
+        particleSystem.maxSize = 1.2;
+
+        // Fewer but longer-lasting particles
+        particleSystem.minLifeTime = 1.0;
+        particleSystem.maxLifeTime = 2.5;
+        particleSystem.emitRate = 60;
+
+        // Gentle upward movement with some variation
+        particleSystem.direction1 = new Vector3(-0.1, 0.8, -0.1);
+        particleSystem.direction2 = new Vector3(0.1, 1.2, 0.1);
+        particleSystem.gravity = new Vector3(0, 0.1, 0);
+
+        // Rotation for organic feel
+        particleSystem.minAngularSpeed = -0.3;
+        particleSystem.maxAngularSpeed = 0.3;
+
+        // Initial burst effect
+        const burstParticles = new ParticleSystem("healingBurst", 100, this._scene!);
+        burstParticles.particleTexture = particleSystem.particleTexture.clone();
+        burstParticles.emitter = this._characterMesh.position.clone();
+        burstParticles.minSize = 1.5;
+        burstParticles.maxSize = 3.0;
+        burstParticles.minLifeTime = 0.4;
+        burstParticles.maxLifeTime = 0.8;
+        burstParticles.emitRate = 300;
+        burstParticles.blendMode = ParticleSystem.BLENDMODE_ONEONE;
+        
+        // Start systems
+        particleSystem.start();
+        burstParticles.start();
+
+        // Dynamic control
+        const startTime = Date.now();
+        const duration = 2000;
+        const updateInterval = setInterval(() => {
+            const elapsed = Date.now() - startTime;
+            if (elapsed >= duration) {
+                clearInterval(updateInterval);
+                particleSystem.stop();
+                burstParticles.stop();
+                setTimeout(() => {
+                    particleSystem.dispose();
+                    burstParticles.dispose();
+                }, 2500);
+                return;
+            }
+            
+            // Update burst position to follow character
+            burstParticles.emitter = this._characterMesh?.position.clone()!;
+            
+            // Reduce burst emission after initial pop
+            if (elapsed > 300) {
+                burstParticles.emitRate = 0;
+            }
+        }, 16);
+
+        // Optional: Add a subtle pulse effect on the character material
+        // this._addHealingPulseEffect();
+    }
+
+    // private createHealingParticlesAttachedToCharacter() {
+    //     if (!this._characterMesh) return;
+
+    //     const particleSystem = new ParticleSystem("healingParticles", 1000, this._scene!);
+
+    //     // ใช้ texture อนุภาค (โหลดจาก public/textures/flare.png)
+    //     particleSystem.particleTexture = new Texture("textures/flare.png", this._scene);
+
+    //     // ติดกับตัวละครโดยตรง
+    //     particleSystem.emitter = this._characterMesh;
+
+    //     // กระจายรอบตัวนิดหน่อย
+    //     particleSystem.minEmitBox = new Vector3(-0.5, 0, -0.5);
+    //     particleSystem.maxEmitBox = new Vector3(0.5, 1.5, 0.5);
+
+    //     // สีเขียวแบบ Heal
+    //     particleSystem.color1 = new Color4(0.3, 1, 0.3, 1);
+    //     particleSystem.color2 = new Color4(0.2, 0.8, 0.2, 0.5);
+    //     particleSystem.colorDead = new Color4(0, 0.5, 0, 0);
+
+    //     particleSystem.minSize = 0.2;
+    //     particleSystem.maxSize = 0.4;
+
+    //     particleSystem.minLifeTime = 0.5;
+    //     particleSystem.maxLifeTime = 1.5;
+
+    //     particleSystem.emitRate = 150;
+
+    //     particleSystem.direction1 = new Vector3(0, 1, 0);
+    //     particleSystem.direction2 = new Vector3(0, 1.5, 0);
+
+    //     particleSystem.gravity = new Vector3(0, 0, 0);
+
+    //     particleSystem.minEmitPower = 0.2;
+    //     particleSystem.maxEmitPower = 0.6;
+    //     particleSystem.updateSpeed = 0.01;
+
+    //     particleSystem.start();
+
+    //     // หยุดภายใน 2 วิ แล้วลบ
+    //     setTimeout(() => {
+    //         particleSystem.stop();
+    //         particleSystem.dispose();
+    //     }, 2000);
+    // }
+
+    // private createHealingParticlesAttachedToCharacter() {
+    //     if (!this._characterMesh) return;
+
+    //     // Create main particle system
+    //     const particleSystem = new ParticleSystem("healingParticles", 2000, this._scene!);
+        
+    //     // Use high-quality particle texture (consider using a custom texture with soft edges)
+    //     particleSystem.particleTexture = new Texture("textures/flare.png", this._scene);
+    //     particleSystem.blendMode = ParticleSystem.BLENDMODE_ONEONE; // Additive blending for brighter effect
+
+    //     // Attach to character with proper positioning
+    //     particleSystem.emitter = this._characterMesh;
+    //     particleSystem.isLocal = true; // Particles move with character
+
+    //     // Emission area - slightly larger and focused around torso/head
+    //     particleSystem.minEmitBox = new Vector3(-0.8, 0, -0.8);
+    //     particleSystem.maxEmitBox = new Vector3(0.8, 2.0, 0.8);
+
+    //     // Healing color gradient - from bright green to soft white-green
+    //     particleSystem.color1 = new Color4(0.4, 1.0, 0.4, 1.0); // Bright green
+    //     particleSystem.color2 = new Color4(0.7, 1.0, 0.7, 0.7); // Soft white-green
+    //     particleSystem.colorDead = new Color4(0.1, 0.3, 0.1, 0.0); // Fade to dark
+
+    //     // Size variation - some larger particles for emphasis
+    //     particleSystem.minSize = 0.15;
+    //     particleSystem.maxSize = 0.6;
+
+    //     // Lifetime variation
+    //     particleSystem.minLifeTime = 0.8;
+    //     particleSystem.maxLifeTime = 1.8;
+
+    //     // Emission properties
+    //     particleSystem.emitRate = 200;
+    //     particleSystem.minEmitPower = 0.3;
+    //     particleSystem.maxEmitPower = 0.8;
+    //     particleSystem.updateSpeed = 0.02;
+
+    //     // Movement - upward spiral effect
+    //     particleSystem.direction1 = new Vector3(-0.3, 1.2, -0.3);
+    //     particleSystem.direction2 = new Vector3(0.3, 1.8, 0.3);
+    //     particleSystem.gravity = new Vector3(0, 0.2, 0); // Slight gravity to slow ascent
+
+    //     // Rotation for more dynamic particles
+    //     particleSystem.minAngularSpeed = -0.5;
+    //     particleSystem.maxAngularSpeed = 0.5;
+
+    //     // Create secondary system for "burst" effect
+    //     const burstSystem = new ParticleSystem("healingBurst", 500, this._scene!);
+    //     burstSystem.particleTexture = new Texture("textures/flare.png", this._scene);
+    //     burstSystem.emitter = this._characterMesh.position.clone();
+    //     burstSystem.color1 = new Color4(1.0, 1.0, 1.0, 1.0);
+    //     burstSystem.color2 = new Color4(0.5, 1.0, 0.5, 0.5);
+    //     burstSystem.minSize = 0.3;
+    //     burstSystem.maxSize = 1.0;
+    //     burstSystem.minLifeTime = 0.3;
+    //     burstSystem.maxLifeTime = 0.7;
+    //     burstSystem.emitRate = 1000;
+    //     burstSystem.direction1 = new Vector3(-1, 1, -1);
+    //     burstSystem.direction2 = new Vector3(1, 2, 1);
+    //     burstSystem.blendMode = ParticleSystem.BLENDMODE_ONEONE;
+
+    //     // Start both systems
+    //     particleSystem.start();
+    //     burstSystem.start();
+
+    //     // Animation curve for emission rate (starts strong, tapers off)
+    //     const startTime = Date.now();
+    //     const duration = 2000;
+    //     const updateInterval = setInterval(() => {
+    //         const elapsed = Date.now() - startTime;
+    //         if (elapsed >= duration) {
+    //             clearInterval(updateInterval);
+    //             particleSystem.stop();
+    //             burstSystem.stop();
+    //             setTimeout(() => {
+    //                 particleSystem.dispose();
+    //                 burstSystem.dispose();
+    //             }, 2000); // Wait for remaining particles to die
+    //             return;
+    //         }
+            
+    //         // Ease-out curve for emission rate
+    //         const progress = elapsed / duration;
+    //         const rate = 200 * (1 - progress * progress);
+    //         particleSystem.emitRate = rate;
+            
+    //         // Update burst system position to follow character
+    //         burstSystem.emitter = this._characterMesh?.position.clone()!;
+    //     }, 16); // ~60fps update
+
+    //     // Optional: Add sound effect here
+    //     // this._playHealingSound();
+    // }
+
+    private createHealingParticles(position: Vector3) {
+
+        if(!this._scene) return;
+        const particleSystem = new ParticleSystem("healingParticles", 1000, this._scene);
+
+        // ใช้ texture อนุภาค
+        particleSystem.particleTexture = new Texture("textures/flare.png", this._scene);
+
+        // ตำแหน่งเริ่มต้น
+        particleSystem.emitter = position.clone();
+        particleSystem.minEmitBox = new Vector3(-0.2, 0, -0.2); // ปล่อยกระจายเล็กน้อย
+        particleSystem.maxEmitBox = new Vector3(0.2, 0.5, 0.2);
+
+        // สีของอนุภาค (เขียว)
+        particleSystem.color1 = new Color4(0.3, 1, 0.3, 1);
+        particleSystem.color2 = new Color4(0.2, 0.8, 0.2, 0.5);
+        particleSystem.colorDead = new Color4(0, 0.5, 0, 0);
+
+        // ขนาด
+        particleSystem.minSize = 0.2;
+        particleSystem.maxSize = 0.4;
+
+        // อายุ
+        particleSystem.minLifeTime = 0.5;
+        particleSystem.maxLifeTime = 1.5;
+
+        // ความเร็ว
+        particleSystem.emitRate = 150;
+
+        // ทิศทางการเคลื่อนที่
+        particleSystem.direction1 = new Vector3(0, 1, 0); // ลอยขึ้น
+        particleSystem.direction2 = new Vector3(0, 1.5, 0);
+
+        // แรงโน้มถ่วง (ไม่มี)
+        particleSystem.gravity = new Vector3(0, 0, 0);
+
+        // ความเร็วเริ่มต้น
+        particleSystem.minEmitPower = 0.2;
+        particleSystem.maxEmitPower = 0.6;
+        particleSystem.updateSpeed = 0.01;
+
+        particleSystem.start();
+
+        // หยุดแสดงหลัง 2 วิ
+        setTimeout(() => {
+            particleSystem.stop();
+            particleSystem.dispose(); // ลบออกจาก scene
+        }, 2000);
+    }
+
+    private updateHealingPotion() {
+        if(!this._scene) return;
+
+        this._scene.registerBeforeRender(() => {
+
+            if (!this._characterMesh) return;
+
+            const deltaTime = this._scene?.getEngine().getDeltaTime(); // ms ที่ผ่านไปในแต่ละ frame
+
+            // เช็คว่า potion ถูกเก็บไปแล้วหรือยัง
+            if (this._healingPotionUsed) {
+
+                this._potionElapsedTime += deltaTime!;
+
+                // console.log(`ElapsedTime: ${this._potionElapsedTime}`)
+
+                if (this._potionElapsedTime >= this._potionRespawnTime) {
+                    // เวลาครบ 1 นาทีแล้ว ให้ potion กลับมา
+                    const potionMesh = this._scene?.getMeshByName("node0");
+                    if (potionMesh) {
+                        // potionMesh.isVisible = true;
+                        potionMesh.position.y = 1; // ย้ายออกจากฉาก
+                        new PhysicsAggregate(potionMesh, PhysicsShapeType.MESH, { mass: 1 });
+                    }
+                    this._healingPotionUsed = false;
+                    this._potionCollectedAt = null;
+                    this._potionElapsedTime = 0;
+                }
+                return; // รอจน respawn เสร็จ
+            }
+
+            this._scene?.meshes.forEach((otherMesh) => {
+                // ตรวจสอบการชนปกติ
+                const potionMesh = this._scene?.getMeshByName("node0");
+                if (potionMesh && potionMesh.isVisible && this._characterMesh?.intersectsMesh(potionMesh, false)) {
+                    // potionMesh.isVisible = false;
+                    // potionMesh.checkCollisions = false;
+                    this._hpBar?.updateHP(20);
+                    potionMesh.position.y = -10; // ย้ายออกจากฉาก
+                    potionMesh.physicsBody?.dispose(); // ปิด physics
+
+                    this._healSoundEffect.play();
+                    this._healingPotionUsed = true;
+                    this._potionElapsedTime = 0;
+
+                    this.createHealingParticles(this._characterMesh.position.clone());
+                    this.createHealingParticlesAttachedToCharacter();
+                }
+            });
+        });
+    }
+
+    public applyPhysicsViewer() {
+        if(!this._scene) return;
+        this._physicsViewer = new PhysicsViewer(this._scene);
+        for (const node of this._scene.rootNodes) {
+            if (node instanceof Mesh && node.physicsBody) {
+                const debugMesh = this._physicsViewer.showBody(node.physicsBody);
+            }
+        }
+        // if(this._bossPhysicsBody) {
+        //     const debugMeshd = physicsViewer.showBody(this._bossPhysicsBody?.body);
+
+        // }
+        // for (const node of this._scene.rootNodes) {
+        //     if (node instanceof Mesh && node.physicsBody) {
+        //         const debugMesh = physicsViewer.showBody(node.physicsBody);
+        //     }
+        // }
+
     }
 
     public async initializePhysics(): Promise<boolean> {
@@ -72,18 +438,23 @@ export class GameRender extends BaseGameRender {
         }
 
         try {
-            const havokInstance = await HavokPhysics();
-            this._hkPlugin = new HavokPlugin(true, havokInstance);
-            this._scene.enablePhysics(new Vector3(0, -9.81, 0), this._hkPlugin);
-            console.log("Havok Physics initialized successfully.");
+            
+            // const havokInstance = await HavokPhysics();
+            // this._hkPlugin = new HavokPlugin(true, havokInstance);
+            // this._scene.enablePhysics(new Vector3(0, -9.81, 0), this._hkPlugin);
+            // console.log("Havok Physics initialized successfully.");
 
+            await this.setUpPhysicsPlugin();
+            
             if (this._scene.isPhysicsEnabled()) {
                 console.log("initializePhysics: Physics engine enabled.");
                 this.setPhysicsMesh();                
                 this.setupCharacterControl();
 
                 // Decoration
-                await this.createModel();
+                await this.createModel(ItemId.GreenPotion, false);
+                // this.applyPhysicsViewer();
+                await this.createMainCharacter();
 
                 return true;
             } else {
@@ -118,8 +489,9 @@ export class GameRender extends BaseGameRender {
         childMeshes.forEach(child => {
             if (child instanceof Mesh) {
                 console.log(`Applying physics to: ${child.name}`);
-                child.scaling.scaleInPlace(0.2)
-                new PhysicsAggregate(child, PhysicsShapeType.BOX, { mass: 5 }, this._scene);
+                child.scaling.scaleInPlace(0.5)
+                child.position.y = -0.5;
+                new PhysicsAggregate(child, PhysicsShapeType.BOX, { mass: 0 }, this._scene);
             }
         });
     }
@@ -153,7 +525,6 @@ export class GameRender extends BaseGameRender {
     }
 
     private applyPhysicsSmart(mesh: AbstractMesh) {
-        console.log('SMART....')
         const childMeshes = mesh.getChildMeshes().filter(
             (m): m is Mesh => m instanceof Mesh
         );
@@ -168,7 +539,7 @@ export class GameRender extends BaseGameRender {
             // Merge and apply physics
             const merged = Mesh.MergeMeshes(childMeshes, true, true, undefined, false, true);
             if (merged) {
-                merged.position = mesh.position.clone();
+                // merged.position = mesh.position.clone();
                 merged.isVisible = true;
                 merged.setEnabled(true);
                 new PhysicsAggregate(merged, PhysicsShapeType.MESH, { mass: 1 }, this._scene);
@@ -181,16 +552,9 @@ export class GameRender extends BaseGameRender {
         }
     }
 
-
-    public async createModel() {
-
-        // this.createSphere();
-        //whitesofa
-        // orecat09
-        //hp_portion
-        //thai_studentg
-        const result = await ImportMeshAsync('hp_portion.glb', this._scene!);
-        // Get the first real Mesh (not a TransformNode)
+    public async createModel(modelId: string, isMerge: boolean = true) {
+        
+        const result = await ImportMeshAsync(modelId, this._scene!);
         const mesh = result.meshes[0];
         let childMeshes = mesh.getChildMeshes();
 
@@ -204,52 +568,56 @@ export class GameRender extends BaseGameRender {
         return;
         }
 
+        mesh.scaling.scaleInPlace(0.5);
         mesh.position.z = -8;
-        mesh.position.y = 3;
+        mesh.position.y = 1;
 
         mesh.showBoundingBox = true;
         mesh.showSubMeshesBoundingBox = true;
+
         //Apply Physics
         if (this._scene?.isPhysicsEnabled()) {
-            // this.applyPhysicsSmart(mesh);
-            this.applyPhysicsToEachChildMesh(mesh);
+            this.applyPhysicsSmart(mesh);
+            // new PhysicsAggregate(mesh!, PhysicsShapeType.MESH, { mass: 2 });
+            // if(isMerge && childMeshes.length > 1) {
+            //     const mesh0 = this.mergeChildMeshes(mesh!);
+            //     if(mesh0) {
+            //         // this.applyPhysicsSmart(mesh0!);
+            //         this.applyPhysicsToEachChildMesh(mesh);
 
-
-        // const meshesMerge = this.mergeChildMeshes(mesh);
-        // if(meshesMerge) {
-        //     meshesMerge.position.z = -1;
-        //     meshesMerge.position.y = 0;
-        //     // this.applyPhysicsToEachChildMesh(meshesMerge);
-        //     this.applyPhysicsSmart(meshesMerge);
-
-        // }
-
-        // this.applyPhysicsSmart(meshesMerge!);
-
-        // childMeshes.forEach(child => {
-        //     if (child instanceof Mesh) {
-        //         console.log(`Applying physics to ${child.name}`);
-        //         new PhysicsAggregate(child, PhysicsShapeType.MESH, { mass: 1 }, this._scene);
-        //     }
-        // });
-
-            // if(mesh.onReady) {
-            //     console.log('ready =====>')
-            //     new PhysicsAggregate(mesh, PhysicsShapeType.MESH, { mass: 1 }, this._scene);
+            //     }
+            // }else{
+            //     this.applyPhysicsToEachChildMesh(mesh);
             // }
         } else {
             console.warn("Physics is not enabled on the scene.");
         }
     }
-    
 
-    public async createMainScene() {
-        // Camera and light
+    public async createAudio() {
+        const audioEngine = await CreateAudioEngineAsync();
+        this._healSoundEffect = await audioEngine.createSoundAsync("healing", PATHS.SOUNDS.HEALING);
+        this._healSoundEffect.volume = 0.25;
+        await audioEngine.unlockAsync();
+    }
+    
+    public createCamera() {
         this._camera = new FreeCamera("camera1", new Vector3(0, 5, -10), this._scene);
         this._camera.setTarget(Vector3.Zero());
         this._camera.attachControl(true);
+    }
+
+    public async createMainScene() {
+
+        // Camera
+        this.createCamera();
+
+        // Light
         this._light = new HemisphericLight('light1', new Vector3(0, 1, 0), this._scene);
     
+        // Skybox 
+        // this.createSkybox();
+
         // Ground
         const groundSize = 20;
         this._ground = MeshBuilder.CreateGround("ground", { width: groundSize, height: groundSize }, this._scene);
@@ -325,6 +693,20 @@ export class GameRender extends BaseGameRender {
 
     }
 
+    private createSkybox() {
+        const skybox = MeshBuilder.CreateBox("skyBox", { size: 3500.0 }, this._scene);
+        const skyboxMaterial = new StandardMaterial("skyBox", this._scene);
+        
+        const reflectionTexture = new CubeTexture(PATHS.TEXTURES.SKY, this._scene!);
+        skyboxMaterial.reflectionTexture = reflectionTexture;
+        skyboxMaterial.reflectionTexture.coordinatesMode = Texture.SKYBOX_MODE;
+        skyboxMaterial.backFaceCulling = false;
+        skyboxMaterial.disableLighting = true;
+        skybox.material = skyboxMaterial;
+
+        return skybox
+    };
+
     private createWallsPhysics(groundSize = 20) {
         // Wall settings
         const wallHeight = 2;
@@ -364,7 +746,6 @@ export class GameRender extends BaseGameRender {
         wallRight.material = wallMat;
         wallFront.material = wallMat;
 
-
         var wallBase = MeshBuilder.CreateBox("wall", {size: 2}, this._scene);
         wallBase.position.y = 1;
         wallBase.position.x = 3;
@@ -399,6 +780,7 @@ export class GameRender extends BaseGameRender {
         this._platformAggregate.transformNode.position.set(5,2,0);
 
         this._scene?.onBeforeAnimationsObservable.add( () => {
+
             if(!this._engine) return;
             if(!this._platformAggregate) return;
 
@@ -441,15 +823,20 @@ export class GameRender extends BaseGameRender {
         characterMaterial.diffuseColor = new Color3(1, 0.56, 0.56);
         this._characterMesh.material = characterMaterial;
         this._characterMesh.position.set(0,1.5,-5);
+        this._characterMesh.isVisible = false;
 
         //Healthbar
-        new HealthBar( this._characterMesh, "Visitor", { isBoss: false, hp: 100 }, this._scene!);
+        this._hpBar = new HealthBar( this._characterMesh, "Visitor", { isBoss: false, hp: this._playerHP }, this._scene!);
 
         //Set Camera
         this._camera && this._camera.setTarget(this._characterMesh.position);
 
         //Axes
-        this.activateAxes(this._characterMesh)
+        this.activateAxes(this._characterMesh);
+
+        //Loading Character Mesh
+        // ImportMeshAsync('./models/character');
+
 
     }
 
@@ -485,7 +872,7 @@ export class GameRender extends BaseGameRender {
 
     }
 
-    private setPhysicsMesh() {
+    private async setPhysicsMesh() {
         if(!this._characterMesh || !this._ground) return;
         this._characterAggregate = new PhysicsAggregate(this._characterMesh,
             PhysicsShapeType.CAPSULE,
@@ -516,9 +903,7 @@ export class GameRender extends BaseGameRender {
         this._ground.material = groundMaterial;
 
         //call others
-        this.createWallsPhysics();
-        this.createTrampoline();
-        this.createTriggerShape();
+        await this.update();
     }
 
     private respawnUnderThreshold() {
@@ -530,7 +915,9 @@ export class GameRender extends BaseGameRender {
     }
 
     private showGUI() {
-        var advancedTexture = GUI.AdvancedDynamicTexture.CreateFullscreenUI("UI", true, this._scene);
+        if(!this._scene) return;
+
+        var advancedTexture = GUI.AdvancedDynamicTexture.CreateFullscreenUI("UI", true, this._scene!);
         this._guiText01 = new GUI.TextBlock("guiTextBlock01", "");
         this._guiText01.color = "white";
         this._guiText01.textHorizontalAlignment = GUI.TextBlock.HORIZONTAL_ALIGNMENT_LEFT;
@@ -563,6 +950,18 @@ export class GameRender extends BaseGameRender {
         });
     }
 
+    private _playAnimation(name: string) {
+        if (this._currentAnim === name) return;
+
+        if (this._currentAnim) {
+            this._animations[this._currentAnim]?.stop();
+        }
+
+        this._animations[name]?.start(true);
+        this._currentAnim = name;
+    }
+
+
     private setupCharacterControl() {
         if(!this._scene) return;
 
@@ -572,6 +971,10 @@ export class GameRender extends BaseGameRender {
             this._amount = 0;
             this._dist = 0;
 
+            // by default, character velocity is 0. It won't move if no input or not falling
+            var linearVelocity = new Vector3(0,0,0);
+
+            //#region Update Camera
             // get camera world direction and right vectors. Character will move in camera space. 
             var cameraDirection = this._camera.getDirection(new Vector3(0,0,1));
             cameraDirection.y = 0;
@@ -581,11 +984,9 @@ export class GameRender extends BaseGameRender {
             cameraRight.y = 0;
             cameraRight.normalize();
 
-            // by default, character velocity is 0. It won't move if no input or not falling
-            var linearVelocity = new Vector3(0,0,0);
-
             cameraDirection.scaleAndAddToRef(this._inputVelocity.z, linearVelocity); // z is forward
             cameraRight.scaleAndAddToRef(this._inputVelocity.x, linearVelocity);     // x is strafe
+            //#endregion
 
             // interpolate between current velocity and targeted velocity. This will make acceleration and decceleration more visible
             linearVelocity = Vector3.Lerp(this._characterBody.getLinearVelocity(), linearVelocity, 0.2);
@@ -595,7 +996,6 @@ export class GameRender extends BaseGameRender {
                 console.log(`hit platform...`)
                 // linearVelocity.x += 0.00999 * 16.66;
                 linearVelocity.x += this._deltaX * 16.66;
-
             }
             
             if(this._inputVelocity.y > 0) {
@@ -604,7 +1004,6 @@ export class GameRender extends BaseGameRender {
                 linearVelocity.y = this._characterBody.getLinearVelocity().y;
             } 
 
-            
             if(this._characterMesh) {
                 // Casting the shape to the ground below. It works like a raycast but with thickness
                 // this._camera.parent = this._characterMesh;
@@ -649,12 +1048,21 @@ export class GameRender extends BaseGameRender {
             }
 
             // Apply computed linear velocity. Each frame is the same: get current velocity, transform it, apply it, ...
-            this._characterBody.setLinearVelocity(linearVelocity);
-            
 
+            const movementSpeed = new Vector3(linearVelocity.x, 0, linearVelocity.z).length();
+            const isWalking = movementSpeed > 0.05;
+
+            this._characterBody.setLinearVelocity(linearVelocity);
+
+            if (isWalking) {
+                this._playAnimation("Walk");
+            } else {
+                this._playAnimation("Idle");
+            }
+
+            
             // Camera control: Interpolate the camera target with character position. compute an amount of distance to travel to be in an acceptable range.
             this._camera.setTarget(Vector3.Lerp(this._camera.getTarget(), this._characterMesh.position, 0.1));
-
             this._dist = Vector3.Distance(this._camera.position, this._characterMesh.position);
             this._amount = (Math.min(this._dist - 10, 0) + Math.max(this._dist - 15, 0)) * 0.02;
 
@@ -681,7 +1089,7 @@ export class GameRender extends BaseGameRender {
                     this._inputVelocity.x = -multiplier; // ✅ Left
                     break;
                 case ' ':
-                    this._inputVelocity.y = multiplier;
+                    this._inputVelocity.y = multiplier * 2.5;
                     break;
                 case 'arrowright':
                 case 'd':
@@ -689,6 +1097,69 @@ export class GameRender extends BaseGameRender {
                     break;
             }
         });
+    }
+
+    //dev
+    private async createMainCharacter() {
+        const result =  await ImportMeshAsync(ItemId.MainCharacter, this._scene!);
+        const mesh = result.meshes[0]
+
+        // Force bounding info update (in case it's not ready)
+        mesh.computeWorldMatrix(true);
+        mesh.name = "MainCharacterMerged";
+        mesh.position.set(0, 0, 0);
+        // mergedMesh.scaling.set(100, 100, 100); // Or any scale factor
+        mesh.computeWorldMatrix(true);
+
+        const boundingInfo = this._characterMesh?.getBoundingInfo();
+        const minY = boundingInfo?.boundingBox.extendSize.y;
+        mesh.position.y -= minY!;
+
+        mesh.scaling.scaleInPlace(2);
+        mesh.parent = this._characterMesh!;
+
+
+        // Access animation groups from the result
+        // const walkAnim = result.animationGroups.find(group => group.name === "Walking");
+        // const idleAnim = result.animationGroups.find(group => group.name === "Idle");
+        // const walkAnim = result.animationGroups.find(group => group.name === "Walk");
+        result.animationGroups.forEach(anim => {
+            this._animations[anim.name] = anim;
+        });
+
+        // Add Havok physics if scene has physics enabled
+        await this._scene?.whenReadyAsync();
+
+        if (this._scene?.isPhysicsEnabled() && this._hkPlugin) {
+            // 1. Create a basic box shape (you can use BoundingBox or bounding info for more accuracy)
+            // var mainCharacter = new PhysicsAggregate(mergedMesh, PhysicsShapeType.MESH, { mass: 20 }, this._scene);   
+            
+            // this.applyPhysicsToEachChildMesh(result.meshes[0]);
+
+            // 2. Create a physics body
+            // const body = new PhysicsBody(mesh, PhysicsMotionType.DYNAMIC, false, this._scene);
+
+            // // 3. Attach the shape to the body
+            // body.shape = shape;
+
+            // // Optional: customize properties
+            // body.setMassProperties({ mass: 1 });
+            // body.setLinearDamping(0.2);
+            // body.setAngularDamping(0.5);
+
+        }
+
+    }
+
+    public async update() {
+
+        this.createWallsPhysics();
+        this.createTrampoline();
+        this.createTriggerShape();
+        // this.createModel(ItemId.MainCharacter, false);
+  
+        this.updateHealingPotion();
+
     }
 
     public render() {

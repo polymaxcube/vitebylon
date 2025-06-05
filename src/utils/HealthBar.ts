@@ -24,12 +24,24 @@ export default class HealthBar {
     public _isBoss: boolean = false;
     public _setExtraHeight: number = 0.5;
 
+    public _currentHP: number = 50;
+    private _greenHeal: GUI.Rectangle | undefined; // Store reference to the green fill
+    private _maxHP: number = 100; // Store max HP
+
     constructor(mesh: Mesh, text: string, options: Options, scene: Scene) {
         this._nodeMesh = mesh;
         this._scene = scene;
         this._text = text;
         this._options = options;
+
+        if(this._options.hp) {
+            this._currentHP = this._options.hp;
+        }
+
+        
         this.init();
+
+        // console.log(`updateHP: ${updateHP}`)
     }
 
     private init() {
@@ -62,7 +74,6 @@ export default class HealthBar {
 
         panel.addControl(textBlock); 
 
-
         // Create Health Bar
         const healthbar = new GUI.Rectangle();
         healthbar.width = 1;
@@ -73,15 +84,16 @@ export default class HealthBar {
         healthbar.background = "red";
 
         // Create Green Fill
-        const greenHeal = new GUI.Rectangle();
-        greenHeal.height = "100%";
-        greenHeal.cornerRadius = 5;
-        greenHeal.color = "black";
-        greenHeal.thickness = 1;
-        greenHeal.background = "green";
-        greenHeal.horizontalAlignment = GUI.Control.HORIZONTAL_ALIGNMENT_LEFT;
-        greenHeal.width = `${this._options?.hp ? this._options.hp: 0}%`; // Health fill percentage
-        healthbar.addControl(greenHeal);
+        this._greenHeal = new GUI.Rectangle();
+        this._greenHeal.height = "100%";
+        this._greenHeal.cornerRadius = 5;
+        this._greenHeal.color = "black";
+        this._greenHeal.thickness = 1;
+        this._greenHeal.background = "green";
+        this._greenHeal.horizontalAlignment = GUI.Control.HORIZONTAL_ALIGNMENT_LEFT;
+        this._greenHeal.width = `${this._currentHP ? this._currentHP : 0}%`; // Health fill percentage
+        
+        healthbar.addControl(this._greenHeal);
 
         panel.addControl(healthbar); // Add health bar below text
 
@@ -89,4 +101,18 @@ export default class HealthBar {
         advancedTexture.addControl(panel);
     }
 
+    //Add this method to update health
+    public updateHP(newHP: number): void {
+        this._currentHP += newHP;
+
+        // Clamp the value between 0 and max HP
+        this._currentHP = Math.max(0, Math.min(this._currentHP, this._maxHP));
+
+        // _greenHeal
+        if (this._greenHeal) {
+             const percentage = (this._currentHP / this._maxHP) * 100;
+            this._greenHeal.width = `${percentage}%`;
+
+        }
+    }
 }
