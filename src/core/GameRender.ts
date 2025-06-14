@@ -11,7 +11,7 @@ import { Ground } from "@/objects/Ground";
 import { Configs } from "@/constants/Configs";
 import { Mango } from "@/objects/Mango";
 import { AdvancedDynamicTexture, Control, TextBlock } from "babylonjs-gui";
-// import { CubeTest } from "@/objects/CubeTest";
+import { CubeTest } from "@/objects/CubeTest";
 
 export class GameRender extends BaseGameRender {
 
@@ -68,7 +68,6 @@ export class GameRender extends BaseGameRender {
 
     private _groundAggregate!: PhysicsAggregate | undefined;
     
-
     private _crosshair!: GUI.Rectangle | undefined;
 
     // private _platformHook
@@ -1135,7 +1134,7 @@ export class GameRender extends BaseGameRender {
         this._ground = ground.mesh
 
         // this.addGameObject(new RotatingCube("cube1", {x: -4.5, y: 5, z: 0 }));
-        // this.addGameObject(new CubeTest("cube1", {x: -4.5, y: 5, z: 0 }));
+        this.addGameObject(new CubeTest("cube1", {x: -4.5, y: 5, z: 0 }));
         // this.addGameObject(new Mango("mango1", {x: -2, y: 2, z: 0 }));
         // this.addGameObject(new Mango("mango2", {x: 2, y: 2, z: -2 }));
 
@@ -1192,7 +1191,7 @@ export class GameRender extends BaseGameRender {
     } = {}) {
         if (!this._scene) return;
 
-        const advancedTexture = GUI.AdvancedDynamicTexture.CreateFullscreenUI("UI", true, this._scene);
+        const advancedTexture = AdvancedDynamicTexture.CreateFullscreenUI("UI", true, this._scene);
 
         const px = (v: number) => `${v}px`;
 
