@@ -11,6 +11,7 @@ import { Ground } from "@/objects/Ground";
 import { Configs } from "@/constants/Configs";
 import { Mango } from "@/objects/Mango";
 import { AdvancedDynamicTexture, Control, TextBlock } from "babylonjs-gui";
+import { CubeTest } from "@/objects/CubeTest";
 
 export class GameRender extends BaseGameRender {
 
@@ -74,7 +75,6 @@ export class GameRender extends BaseGameRender {
 
     constructor(id: string) {
         super(id);
-
     }
 
     private async createScene() {
@@ -1078,7 +1078,7 @@ export class GameRender extends BaseGameRender {
 
             // this._camera.setTarget(this._characterMesh.position);
 
-            this.respawnUnderThreshold();
+            this.respawnUnderThreshold(); 
 
         });
 
@@ -1088,7 +1088,7 @@ export class GameRender extends BaseGameRender {
     //dev
     private async createMainCharacter() {
         const result =  await ImportMeshAsync(ItemId.MainCharacter, this._scene!);
-        const mesh = result.meshes[0]
+        const mesh = result.meshes[0];
 
         // Force bounding info update (in case it's not ready)
         mesh.computeWorldMatrix(true);
@@ -1137,6 +1137,8 @@ export class GameRender extends BaseGameRender {
         this.addGameObject(new Mango("mango1", {x: -2, y: 2, z: 0 }));
         // this.addGameObject(new Mango("mango2", {x: -2, y: 10, z: 0 }));
         // this.addGameObject(new Mango("mango3", {x: -2, y: 6, z: 0 }));
+
+        this.addGameObject(new CubeTest("tescube123", {x: -4.5, y: 5, z: 0 }))
 
         //#endregion
 
@@ -1188,7 +1190,7 @@ export class GameRender extends BaseGameRender {
     } = {}) {
         if (!this._scene) return;
 
-        const advancedTexture = GUI.AdvancedDynamicTexture.CreateFullscreenUI("UI", true, this._scene);
+        const advancedTexture = GUI.AdvancedDynamicTexture.CreateFullscreenUI("UI", true, this._scene!);
 
         const px = (v: number) => `${v}px`;
 

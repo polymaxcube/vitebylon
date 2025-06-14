@@ -106,16 +106,16 @@ export class Ground implements IGameObject {
 
   }
 
-  public get mesh(): GroundMesh | undefined {
-    return this._ground;
-  }
-
   public update(deltaTime: number) {
     return;
   }
 
   public dispose() {
     this._ground?.dispose();
+  }
+
+  public get mesh(): GroundMesh | undefined {
+    return this._ground;
   }
 
   private _registerShaders() {
