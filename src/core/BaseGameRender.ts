@@ -35,8 +35,15 @@ export default abstract class BaseGameRender {
             this._hkPlugin = new HavokPlugin(true, havokInstance);
             this._scene?.enablePhysics(new Vector3(0, -9.81, 0), this._hkPlugin);
             console.log("Havok Physics initialized successfully.");
+
+            if(this._scene?.enablePhysics()) {
+                return true;
+            } else {
+                return false;
+            }
         } catch (error) {
             console.log(`Physics Setup: ${error}`);
+            return false;
         }
     }
 
@@ -52,7 +59,6 @@ export default abstract class BaseGameRender {
     }
 
     public async update() {
-
     }
 
     protected resizeWindow() {

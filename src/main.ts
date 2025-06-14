@@ -1,8 +1,9 @@
 import './style.css'
 import { GameRender } from './core/GameRender.ts'
 
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
   const game = new GameRender("renderGame");
-  game.render();
+  await game.start();
+
 });
 
