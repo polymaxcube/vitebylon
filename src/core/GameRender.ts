@@ -11,6 +11,7 @@ import { Ground } from "@/objects/Ground";
 import { Configs } from "@/constants/Configs";
 import { Mango } from "@/objects/Mango";
 import { AdvancedDynamicTexture, Control, TextBlock } from "babylonjs-gui";
+// import { CubeTest } from "@/objects/CubeTest";
 
 export class GameRender extends BaseGameRender {
 
@@ -865,7 +866,7 @@ export class GameRender extends BaseGameRender {
 
     private respawnUnderThreshold() {
         if(this._characterMesh) {
-            if(this._characterMesh.position.y < -1) {
+            if(this._characterMesh.position.y < -2) {
                 this._characterMesh.position.set(0,1,-3);
             }
         }
@@ -935,7 +936,7 @@ export class GameRender extends BaseGameRender {
 
     private setUpKeyBoardControl() {
         this._scene?.onKeyboardObservable.add((kbInfo) => {
-                const multiplier = (kbInfo.type == KeyboardEventTypes.KEYDOWN) ? 2 : 0;
+                const multiplier = (kbInfo.type == KeyboardEventTypes.KEYDOWN) ? 5 : 0;
             
                 switch (kbInfo.event.key.toLowerCase()) {
                     // Arrow keys
@@ -1134,7 +1135,10 @@ export class GameRender extends BaseGameRender {
         this._ground = ground.mesh
 
         // this.addGameObject(new RotatingCube("cube1", {x: -4.5, y: 5, z: 0 }));
-        this.addGameObject(new Mango("mango1", {x: -2, y: 2, z: 0 }));
+        // this.addGameObject(new CubeTest("cube1", {x: -4.5, y: 5, z: 0 }));
+        // this.addGameObject(new Mango("mango1", {x: -2, y: 2, z: 0 }));
+        // this.addGameObject(new Mango("mango2", {x: 2, y: 2, z: -2 }));
+
         // this.addGameObject(new Mango("mango2", {x: -2, y: 10, z: 0 }));
         // this.addGameObject(new Mango("mango3", {x: -2, y: 6, z: 0 }));
 
