@@ -1,6 +1,5 @@
 import { IGameObject } from "@/types/IGameObject";
-import { Color3, Mesh, MeshBuilder, Scene, StandardMaterial } from "@babylonjs/core";
-import { PhysicsAggregate, PhysicsShape, PhysicsShapeBox, TransformNode } from "babylonjs";
+import { Color3, Mesh, MeshBuilder, PhysicsAggregate, PhysicsShapeType, Scene, StandardMaterial } from "@babylonjs/core";
 
 type Position = {
     x: number;
@@ -33,9 +32,9 @@ export class CubeTest implements IGameObject {
     this._mesh.material = material;
 
     //physics   
-    // if (this._mesh == null) {
-    //     new PhysicsAggregate(this._mesh,PhysicsShapeType.Box, this._scene);
-    // }
+    new PhysicsAggregate(this._mesh, PhysicsShapeType.BOX, { mass: 1}, this._scene);
+
+
         
   }
 
